@@ -41,9 +41,15 @@ const requireUrlWithProtocol = (env: EnvInput, name: string, allowedProtocols: s
   try {
     const url = new URL(value);
     if (allowedProtocols.includes(url.protocol)) {
+      if (!url.hostname) {
+        throw new Error(`${name} must include a hostname`);
+      }
       return value;
     }
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message === `${name} must include a hostname`) {
+      throw error;
+    }
     // Fall through to the common validation error below.
   }
 

@@ -53,6 +53,18 @@ describe("parseEnv", () => {
     ).toThrow("MQTT_URL must be a valid URL with protocol mqtt: or mqtts:");
   });
 
+  test("throws when MQTT_URL does not include a hostname", () => {
+    expect(() =>
+      parseEnv({
+        RF003_BASE_URL: "http://rf003.local",
+        RF003_USERNAME: "admin",
+        RF003_PASSWORD: "secret",
+        MQTT_URL: "mqtt:broker",
+        VALKEY_URL: "redis://valkey.local:6379",
+      }),
+    ).toThrow("MQTT_URL must include a hostname");
+  });
+
   test("throws when VALKEY_URL uses an invalid protocol", () => {
     expect(() =>
       parseEnv({
@@ -63,6 +75,18 @@ describe("parseEnv", () => {
         VALKEY_URL: "ftp://valkey.local",
       }),
     ).toThrow("VALKEY_URL must be a valid URL with protocol redis: or rediss:");
+  });
+
+  test("throws when VALKEY_URL does not include a hostname", () => {
+    expect(() =>
+      parseEnv({
+        RF003_BASE_URL: "http://rf003.local",
+        RF003_USERNAME: "admin",
+        RF003_PASSWORD: "secret",
+        MQTT_URL: "mqtt://mosquitto.local:1883",
+        VALKEY_URL: "redis:valkey",
+      }),
+    ).toThrow("VALKEY_URL must include a hostname");
   });
 
   test("throws when a numeric setting is invalid", () => {
