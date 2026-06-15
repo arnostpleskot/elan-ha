@@ -30,4 +30,30 @@ describe("device registry storage", () => {
     const redis = { get: async () => null };
     expect(await loadDeviceRegistry(redis)).toEqual([]);
   });
+
+  test("throws a clear error when registry JSON is invalid", async () => {
+    const redis = { get: async () => "{" };
+    await expect(loadDeviceRegistry(redis)).rejects.toThrow("Invalid device registry in Valkey");
+  });
+
+  test("throws a clear error when registry JSON is not an array", async () => {
+    const redis = { get: async () => JSON.stringify({ devices: [entity] }) };
+    await expect(loadDeviceRegistry(redis)).rejects.toThrow("Invalid device registry in Valkey");
+  });
+
+  test("throws a clear error when a switch entity is malformed", async () => {
+    const redis = { get: async () => JSON.stringify([{ ...entity, id: 9354 }]) };
+    await expect(loadDeviceRegistry(redis)).rejects.toThrow("Invalid device registry in Valkey");
+  });
+
+  test("throws a clear error when a light entity is malformed", async () => {
+    const light = {
+      ...entity,
+      kind: "light",
+      capabilities: ["brightness"],
+      brightness: { min: 0, max: 100, step: Number.POSITIVE_INFINITY },
+    };
+    const redis = { get: async () => JSON.stringify([light]) };
+    await expect(loadDeviceRegistry(redis)).rejects.toThrow("Invalid device registry in Valkey");
+  });
 });
