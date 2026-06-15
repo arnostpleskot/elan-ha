@@ -32,8 +32,12 @@ type DeviceStateData = { deviceId: string };
 export const createGatewayWorker = (
   connection: ValkeyConnectionOptions,
   logger: Logger,
-  deps: GatewayWorkerDeps = missingGatewayWorkerDeps(),
+  deps?: GatewayWorkerDeps,
 ): Worker => {
+  if (deps === undefined) {
+    throw new Error("Gateway worker dependencies are required");
+  }
+
   const workerLogger = logger.child({ module: "queue" });
 
   return new Worker(
@@ -50,20 +54,54 @@ const processGatewayJob = async (job: GatewayJob, deps: GatewayWorkerDeps, logge
       await handleDiscovery(deps, logger);
       return;
     case GatewayJobName.SetOutput:
-      await handleSetOutput(job.data as SetOutputData, deps);
+      await handleSetOutput(parseSetOutputData(job.data), deps);
       return;
     case GatewayJobName.SetBrightness:
-      await handleSetBrightness(job.data as SetBrightnessData, deps);
+      await handleSetBrightness(parseSetBrightnessData(job.data), deps);
       return;
     case GatewayJobName.PollFullState:
       await handlePollFullState(deps);
       return;
     case GatewayJobName.PollDeviceState:
-      await handlePollDeviceState(job.data as DeviceStateData, deps);
+      await handlePollDeviceState(parseDeviceStateData(job.data), deps);
       return;
     default:
       throw new Error(`Unknown gateway job: ${job.name}`);
   }
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const parseSetOutputData = (data: unknown): SetOutputData => {
+  if (!isRecord(data) || typeof data.deviceId !== "string" || (data.state !== "ON" && data.state !== "OFF")) {
+    throw new Error("Invalid command.set_output job data");
+  }
+
+  return { deviceId: data.deviceId, state: data.state };
+};
+
+const parseSetBrightnessData = (data: unknown): SetBrightnessData => {
+  if (
+    !isRecord(data) ||
+    typeof data.deviceId !== "string" ||
+    typeof data.brightness !== "number" ||
+    !Number.isFinite(data.brightness) ||
+    data.brightness < 0 ||
+    data.brightness > 100
+  ) {
+    throw new Error("Invalid command.set_brightness job data");
+  }
+
+  return { deviceId: data.deviceId, brightness: data.brightness };
+};
+
+const parseDeviceStateData = (data: unknown): DeviceStateData => {
+  if (!isRecord(data) || typeof data.deviceId !== "string") {
+    throw new Error("Invalid poll.device_state job data");
+  }
+
+  return { deviceId: data.deviceId };
 };
 
 const handleDiscovery = async (deps: GatewayWorkerDeps, logger: Logger): Promise<void> => {
@@ -135,27 +173,4 @@ const findRegistryEntity = async (deviceId: string, deps: GatewayWorkerDeps): Pr
   }
 
   return entity;
-};
-
-const missingGatewayWorkerDeps = (): GatewayWorkerDeps => {
-  const fail = async (): Promise<never> => {
-    throw new Error("Gateway worker dependencies are not configured");
-  };
-
-  return {
-    operations: {
-      listDeviceIds: fail,
-      getDeviceDetail: fail,
-      getDeviceState: fail,
-      setSwitch: fail,
-      setBrightness: fail,
-    },
-    loadRegistry: fail,
-    saveRegistry: fail,
-    saveState: fail,
-    publishDiscovery: fail,
-    publishState: fail,
-    updateLastPoll: fail,
-    updateLastSuccess: fail,
-  };
 };

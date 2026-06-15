@@ -48,12 +48,20 @@ describe("gateway worker", () => {
     expect(capturedOpts.concurrency).toBe(1);
   });
 
+  test("throws at construction when dependencies are missing", () => {
+    expect(() => createGatewayWorker({ host: "localhost", port: 6379 }, logger)).toThrow(
+      "Gateway worker dependencies are required",
+    );
+  });
+
   test("handles set output by writing, reading back, storing, and publishing", async () => {
     const calls: string[] = [];
+    const setSwitchCalls: unknown[][] = [];
     const deps = makeDeps({
       operations: {
         ...makeDeps().operations,
-        setSwitch: async () => {
+        setSwitch: async (...args) => {
+          setSwitchCalls.push(args);
           calls.push("setSwitch");
         },
         getDeviceState: async () => ({ on: true }),
@@ -73,6 +81,24 @@ describe("gateway worker", () => {
     await capturedProcessor?.({ name: GatewayJobName.SetOutput, data: { deviceId: "09354", state: "ON" } });
 
     expect(calls).toEqual(["setSwitch", "saveState", "publishState", "updateLastSuccess"]);
+    expect(setSwitchCalls).toEqual([["09354", true]]);
+  });
+
+  test("handles set output OFF by writing false", async () => {
+    const setSwitchCalls: unknown[][] = [];
+    const deps = makeDeps({
+      operations: {
+        ...makeDeps().operations,
+        setSwitch: async (...args) => {
+          setSwitchCalls.push(args);
+        },
+      },
+    });
+    createGatewayWorker({ host: "localhost", port: 6379 }, logger, deps);
+
+    await capturedProcessor?.({ name: GatewayJobName.SetOutput, data: { deviceId: "09354", state: "OFF" } });
+
+    expect(setSwitchCalls).toEqual([["09354", false]]);
   });
 
   test("discovery force saves only supported entities and publishes discovery", async () => {
@@ -115,11 +141,14 @@ describe("gateway worker", () => {
   test("handles set brightness by writing and publishing read-back state", async () => {
     const calls: string[] = [];
     const states: unknown[] = [];
+    const setBrightnessCalls: unknown[][] = [];
     const deps = makeDeps({
-      loadRegistry: async () => [lightEntity],
+      loadRegistry: async () => [{ ...lightEntity, id: "47742" }],
       operations: {
         ...makeDeps().operations,
-        setBrightness: async (_deviceId, brightness) => {
+        setBrightness: async (...args) => {
+          setBrightnessCalls.push(args);
+          const [, brightness] = args;
           calls.push(`setBrightness:${brightness}`);
         },
         getDeviceState: async () => ({ brightness: 42 }),
@@ -138,10 +167,66 @@ describe("gateway worker", () => {
     });
     createGatewayWorker({ host: "localhost", port: 6379 }, logger, deps);
 
-    await capturedProcessor?.({ name: GatewayJobName.SetBrightness, data: { deviceId: "07101", brightness: 42 } });
+    await capturedProcessor?.({ name: GatewayJobName.SetBrightness, data: { deviceId: "47742", brightness: 50 } });
 
-    expect(calls).toEqual(["setBrightness:42", "saveState", "publishState", "updateLastSuccess"]);
+    expect(calls).toEqual(["setBrightness:50", "saveState", "publishState", "updateLastSuccess"]);
+    expect(setBrightnessCalls).toEqual([["47742", 50]]);
     expect(states).toEqual([{ brightness: 42 }, { brightness: 42 }]);
+  });
+
+  test("malformed set output throws before gateway operation", async () => {
+    let setSwitchCalled = false;
+    const deps = makeDeps({
+      operations: {
+        ...makeDeps().operations,
+        setSwitch: async () => {
+          setSwitchCalled = true;
+        },
+      },
+    });
+    createGatewayWorker({ host: "localhost", port: 6379 }, logger, deps);
+
+    await expect(capturedProcessor?.({ name: GatewayJobName.SetOutput, data: { deviceId: "09354" } })).rejects.toThrow(
+      "Invalid command.set_output job data",
+    );
+    expect(setSwitchCalled).toBe(false);
+  });
+
+  test("malformed set brightness throws before gateway operation", async () => {
+    let setBrightnessCalled = false;
+    const deps = makeDeps({
+      operations: {
+        ...makeDeps().operations,
+        setBrightness: async () => {
+          setBrightnessCalled = true;
+        },
+      },
+    });
+    createGatewayWorker({ host: "localhost", port: 6379 }, logger, deps);
+
+    await expect(capturedProcessor?.({ name: GatewayJobName.SetBrightness, data: { deviceId: "47742", brightness: 101 } })).rejects.toThrow(
+      "Invalid command.set_brightness job data",
+    );
+    expect(setBrightnessCalled).toBe(false);
+  });
+
+  test("malformed poll device state throws before gateway operation", async () => {
+    let getDeviceStateCalled = false;
+    const deps = makeDeps({
+      operations: {
+        ...makeDeps().operations,
+        getDeviceState: async () => {
+          getDeviceStateCalled = true;
+          return { on: true };
+        },
+      },
+    });
+    createGatewayWorker({ host: "localhost", port: 6379 }, logger, deps);
+
+    await expect(capturedProcessor?.({ name: GatewayJobName.PollDeviceState, data: { deviceId: 9354 } })).rejects.toThrow(
+      "Invalid poll.device_state job data",
+    );
+    expect(getDeviceStateCalled).toBe(false);
   });
 
   test("poll device state throws when device is absent from registry", async () => {
