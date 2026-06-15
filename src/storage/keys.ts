@@ -2,7 +2,7 @@ const PREFIX = "inels";
 
 export const deviceRegistryKey = (): string => `${PREFIX}:devices`;
 
-export const stateKey = (deviceId: string, channel: number): string => `${PREFIX}:state:${deviceId}:${channel}`;
+export const stateKey = (deviceId: string): string => `${PREFIX}:state:${deviceId}`;
 
 export const lastPollKey = (): string => `${PREFIX}:meta:last_poll`;
 
