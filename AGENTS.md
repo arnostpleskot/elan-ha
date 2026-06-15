@@ -11,8 +11,8 @@ The bridge must stay independent from Home Assistant. Home Assistant should only
 Current target environment:
 
 - RF-003 gateway
-- 4x RFSA-66M relay modules
-- 24 controllable relay outputs
+- RFSA-66M relay outputs exposed by RF-003
+- RFDA-71B dimmer output exposed by RF-003
 - Existing Home Assistant deployment
 - Existing MQTT infrastructure
 - Existing proof of concept: https://github.com/arnostpleskot/homebridge-inels
@@ -37,6 +37,8 @@ Mosquitto
 ```
 
 Core rule: RF-003 is the source of truth. MQTT mirrors RF-003 state and accepts commands that are serialized back to RF-003.
+
+RF-003 is also the source of truth for device inventory. Expose only devices returned by RF-003 discovery and classified as supported bridge entities. Do not synthesize all possible outputs from physical iNELS module capabilities or force a fixed count such as 24 switches.
 
 All RF-003 communication must go through BullMQ with concurrency `1`.
 
@@ -158,8 +160,10 @@ Polling intervals must be configurable. Start with environment variables and san
 
 - Use MQTT.js.
 - Publish Home Assistant MQTT Discovery messages as retained messages.
-- Each RFSA-66M channel maps to one Home Assistant switch entity.
-- The expected MVP result is 24 switch entities.
+- Publish only RF-003-discovered devices that the bridge can classify as supported entities.
+- RF-003 devices with an `on` boolean action/state map to Home Assistant switch entities.
+- RF-003 devices with a `brightness` integer action/state map to Home Assistant dimmable light entities.
+- Do not create MQTT Discovery entities for iNELS module outputs that are not exposed by RF-003 discovery.
 - Separate topic construction into `mqtt/topics.ts`.
 - Separate discovery payload generation into `mqtt/discovery.ts`.
 - Follow Home Assistant MQTT Discovery specifications for discovery topics, entity payloads, identifiers, and availability/state conventions because Home Assistant is the only intended consumer.
@@ -169,7 +173,8 @@ Polling intervals must be configurable. Start with environment variables and san
 Example discovery topic:
 
 ```text
-homeassistant/switch/inels_rfsa66m_1_ch1/config
+homeassistant/switch/<object_id>/config
+homeassistant/light/<object_id>/config
 ```
 
 ## Queue Rules
@@ -180,9 +185,11 @@ Suggested job names:
 
 ```text
 command.set_output
+command.set_brightness
 poll.full_state
 poll.device_state
 discovery.publish
+discovery.force
 ```
 
 Suggested priorities:
@@ -199,13 +206,13 @@ User commands should take precedence over polling and discovery jobs.
 
 Use Valkey for BullMQ and bridge metadata/cache.
 
-Valkey also stores device configuration. The bridge should be able to load configured RFSA-66M devices/channels from Valkey and provide a way to force rediscovery.
+Valkey also stores the normalized device registry discovered from RF-003. The bridge should be able to load supported RF-003-discovered entities from Valkey and provide a way to force rediscovery.
 
 Suggested keys:
 
 ```text
 inels:devices
-inels:state:<device>:<channel>
+inels:state:<device>
 inels:meta:last_poll
 inels:meta:last_success
 ```
@@ -293,7 +300,7 @@ Expected testing focus:
 - RF-003 session behavior and cookie renewal
 - MQTT topic generation
 - MQTT Discovery payload generation
-- RFSA-66M device/channel mapping
+- RF-003 discovered entity classification for switches, dimmers, unsupported devices, and leading-zero IDs
 - Queue priority and serialization behavior
 - Readiness endpoint dependency reporting
 - Config validation failures
@@ -357,6 +364,8 @@ Everything goes through MQTT.
 - RF-003 API details come from `src/api/index.ts` in `https://github.com/arnostpleskot/homebridge-inels`.
 - MQTT Discovery topics, payloads, and unique IDs should follow Home Assistant specifications because Home Assistant is the only intended consumer.
 - Device configuration is stored in Valkey/Redis.
+- Device inventory comes from RF-003 discovery; do not force all possible outputs based on physical iNELS modules.
+- Supported MVP entity types are on/off switches and brightness-capable dimmable lights.
 - The bridge should support forced discovery, for example through an HTTP endpoint.
 - Polling intervals are configurable, initially through environment variables with sane defaults.
 - Docker is the target deployment format, with Home Assistant Supervisor support planned for later stages.
