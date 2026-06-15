@@ -1,5 +1,11 @@
-import type { SwitchChannel } from "../devices/types";
 import { availabilityTopic, normalizeTopicSegment, switchCommandTopic, switchStateTopic } from "./topics";
+
+type SwitchChannel = {
+  deviceId: string;
+  deviceIndex: number;
+  name: string;
+  objectId: string;
+};
 
 export type SwitchDiscoveryPayload = {
   name: string;
