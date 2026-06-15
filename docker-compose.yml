@@ -1,0 +1,27 @@
+services:
+  app:
+    build:
+      context: .
+    image: elan-ha:dev
+    env_file:
+      - .env
+    environment:
+      VALKEY_URL: ${VALKEY_URL:-redis://valkey:6379}
+      HTTP_HOST: ${HTTP_HOST:-0.0.0.0}
+      HTTP_PORT: ${HTTP_PORT:-3000}
+    ports:
+      - "${HTTP_PORT:-3000}:3000"
+    depends_on:
+      valkey:
+        condition: service_started
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    command: ["valkey-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - valkey-data:/data
+
+volumes:
+  valkey-data:
