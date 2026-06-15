@@ -1,5 +1,10 @@
 import type { Logger } from "pino";
 import type { AppConfig } from "../config/env";
+import { createMqttClient } from "../mqtt/client";
+import { checkReadiness } from "../observability/readiness";
+import { createGatewayQueue } from "../queue/scheduler";
+import { createGatewayWorker } from "../queue/worker";
+import { createValkeyClient, parseValkeyConnectionOptions } from "../storage/valkey";
 import { createHttpServer } from "../http/server";
 
 export type App = {
@@ -8,9 +13,15 @@ export type App = {
 
 export const createApp = (config: AppConfig, logger: Logger): App => ({
   start: () => {
+    const valkey = createValkeyClient(config.valkey.url);
+    const connection = parseValkeyConnectionOptions(config.valkey.url);
+    const mqttClient = createMqttClient(config.mqtt, logger);
+    createGatewayQueue(connection);
+    createGatewayWorker(connection, logger);
+
     const httpLogger = logger.child({ module: "http" });
     const server = createHttpServer({
-      getReadiness: async () => ({ ready: false, mqtt: false, valkey: false }),
+      getReadiness: () => checkReadiness(mqttClient, valkey),
     });
 
     server.listen({
