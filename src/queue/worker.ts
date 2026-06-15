@@ -32,12 +32,8 @@ type DeviceStateData = { deviceId: string };
 export const createGatewayWorker = (
   connection: ValkeyConnectionOptions,
   logger: Logger,
-  deps?: GatewayWorkerDeps,
+  deps: GatewayWorkerDeps,
 ): Worker => {
-  if (deps === undefined) {
-    throw new Error("Gateway worker dependencies are required");
-  }
-
   const workerLogger = logger.child({ module: "queue" });
 
   return new Worker(

@@ -48,12 +48,6 @@ describe("gateway worker", () => {
     expect(capturedOpts.concurrency).toBe(1);
   });
 
-  test("throws at construction when dependencies are missing", () => {
-    expect(() => createGatewayWorker({ host: "localhost", port: 6379 }, logger)).toThrow(
-      "Gateway worker dependencies are required",
-    );
-  });
-
   test("handles set output by writing, reading back, storing, and publishing", async () => {
     const calls: string[] = [];
     const setSwitchCalls: unknown[][] = [];
