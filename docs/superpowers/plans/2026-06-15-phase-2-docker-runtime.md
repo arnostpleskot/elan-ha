@@ -100,13 +100,6 @@ services:
   valkey:
     image: valkey/valkey:8-alpine
     command: ["valkey-server", "--save", "", "--appendonly", "no"]
-    ports:
-      - "6379:6379"
-    volumes:
-      - valkey-data:/data
-
-volumes:
-  valkey-data:
 ```
 
 - [ ] **Step 2: Update `.env.example` for Compose defaults**
@@ -222,7 +215,7 @@ Expected: `{"status":"ok"}`. If `APP_HTTP_PORT` is changed, use that host port i
 
 Run: `docker compose down`
 
-Expected: containers stop and default network is removed.
+Expected: containers stop and default network is removed. Valkey is not persisted, so no named volume remains.
 
 - [ ] **Step 7: Remove local `.env`**
 

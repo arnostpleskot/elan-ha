@@ -19,10 +19,3 @@ services:
   valkey:
     image: valkey/valkey:8-alpine
     command: ["valkey-server", "--save", "", "--appendonly", "no"]
-    ports:
-      - "6379:6379"
-    volumes:
-      - valkey-data:/data
-
-volumes:
-  valkey-data:
