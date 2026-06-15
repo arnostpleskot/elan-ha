@@ -18,4 +18,13 @@ export const switchStateTopic = (baseTopic: string, objectId: string): string =>
 export const switchCommandTopic = (baseTopic: string, objectId: string): string =>
   joinTopic(baseTopic, "switch", normalizeTopicSegment(objectId), "set");
 
+export const lightDiscoveryTopic = (discoveryPrefix: string, objectId: string): string =>
+  joinTopic(discoveryPrefix, "light", normalizeTopicSegment(objectId), "config");
+
+export const lightStateTopic = (baseTopic: string, objectId: string): string =>
+  joinTopic(baseTopic, "light", normalizeTopicSegment(objectId), "state");
+
+export const lightCommandTopic = (baseTopic: string, objectId: string): string =>
+  joinTopic(baseTopic, "light", normalizeTopicSegment(objectId), "set");
+
 export const availabilityTopic = (baseTopic: string): string => joinTopic(baseTopic, "status");
