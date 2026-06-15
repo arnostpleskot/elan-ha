@@ -336,6 +336,13 @@ Use Bun's test runner. Use fakes or mocks for RF-003, MQTT, and Valkey where pra
 - Verify `docker compose up` starts the app and `GET /healthz` works.
 - Keep Valkey running in Compose even before the app connects to it; later phases will use it for BullMQ and storage.
 
+Acceptance details for this phase:
+
+- `docker compose config` renders successfully.
+- `docker compose up --build` starts the app and Valkey services.
+- By default, the health endpoint responds at `http://127.0.0.1:3000/healthz`.
+- If `APP_HTTP_PORT` is changed, use that host port for the health check.
+
 ### Phase 3: Pure Domain Modules
 
 - Add MQTT topic helpers.
