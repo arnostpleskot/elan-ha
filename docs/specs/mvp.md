@@ -338,8 +338,9 @@ Use Bun's test runner. Use fakes or mocks for RF-003, MQTT, and Valkey where pra
 
 Acceptance details for this phase:
 
-- `docker compose config` renders successfully.
-- `docker compose up --build` starts the app and Valkey services.
+- `docker compose config` renders successfully even when `.env` has not been created.
+- Copy `.env.example` to `.env` before running `docker compose up --build`, because app startup requires RF-003 and MQTT environment values.
+- `docker compose up --build` starts the app and Valkey services after `.env` is in place.
 - By default, the health endpoint responds at `http://127.0.0.1:3000/healthz`.
 - If `APP_HTTP_PORT` is changed, use that host port for the health check.
 

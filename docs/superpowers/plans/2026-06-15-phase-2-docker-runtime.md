@@ -85,13 +85,14 @@ services:
       context: .
     image: elan-ha:dev
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       VALKEY_URL: ${VALKEY_URL:-redis://valkey:6379}
-      HTTP_HOST: ${HTTP_HOST:-0.0.0.0}
-      HTTP_PORT: ${HTTP_PORT:-3000}
+      HTTP_HOST: 0.0.0.0
+      HTTP_PORT: 3000
     ports:
-      - "${HTTP_PORT:-3000}:3000"
+      - "${APP_HTTP_PORT:-3000}:3000"
     depends_on:
       valkey:
         condition: service_started
@@ -128,20 +129,21 @@ POLL_DEVICE_STATE_INTERVAL_MS=300000
 
 LOG_LEVEL=info
 HTTP_HOST=0.0.0.0
-HTTP_PORT=3000
+# The app listens on port 3000 inside the container.
+APP_HTTP_PORT=3000
 ```
 
-- [ ] **Step 3: Validate Compose config using example env**
+- [ ] **Step 3: Validate Compose config without local env**
 
-Run: `cp .env.example .env && docker compose config`
+Run: `docker compose config`
 
 Expected: Compose renders valid config with `app` and `valkey` services.
 
-- [ ] **Step 4: Remove local `.env` after validation**
+- [ ] **Step 4: Confirm example env can be copied for runtime startup**
 
-Run: `rm .env && git status --short`
+Run: `cp .env.example .env && git status --short`
 
-Expected: `.env` is not tracked and does not appear in status.
+Expected: `.env` is ignored and does not appear in status.
 
 - [ ] **Step 5: Commit**
 
@@ -171,7 +173,7 @@ Add these bullets under `Development Commands`:
 Add this text under `Phase 2: Docker Development Runtime`:
 
 ```markdown
-Phase 2 acceptance requires `docker compose config` to render successfully and `docker compose up --build` to start both services. The app health endpoint must respond at `http://127.0.0.1:3000/healthz` with `{ "status": "ok" }`.
+Phase 2 acceptance requires `docker compose config` to render successfully even without `.env`. Copy `.env.example` to `.env` before `docker compose up --build`; startup requires RF-003 and MQTT environment values. The app health endpoint must respond at `http://127.0.0.1:3000/healthz` by default, or the configured `APP_HTTP_PORT` host port if changed.
 ```
 
 - [ ] **Step 3: Commit**
@@ -194,35 +196,41 @@ Expected: all pass.
 
 - [ ] **Step 2: Validate Compose config**
 
-Run: `cp .env.example .env && docker compose config`
+Run: `docker compose config`
 
-Expected: config renders successfully.
+Expected: config renders successfully even without `.env`.
 
-- [ ] **Step 3: Start Compose runtime**
+- [ ] **Step 3: Create local env for runtime startup**
+
+Run: `cp .env.example .env`
+
+Expected: `.env` exists locally and remains ignored by Git.
+
+- [ ] **Step 4: Start Compose runtime**
 
 Run: `docker compose up --build -d`
 
 Expected: `app` and `valkey` containers start.
 
-- [ ] **Step 4: Verify app health endpoint**
+- [ ] **Step 5: Verify app health endpoint**
 
 Run: `curl --silent --show-error --fail http://127.0.0.1:3000/healthz`
 
-Expected: `{"status":"ok"}`.
+Expected: `{"status":"ok"}`. If `APP_HTTP_PORT` is changed, use that host port instead of `3000`.
 
-- [ ] **Step 5: Stop Compose runtime**
+- [ ] **Step 6: Stop Compose runtime**
 
 Run: `docker compose down`
 
 Expected: containers stop and default network is removed.
 
-- [ ] **Step 6: Remove local `.env`**
+- [ ] **Step 7: Remove local `.env`**
 
 Run: `rm .env`
 
 Expected: `.env` is removed and remains ignored by Git.
 
-- [ ] **Step 7: Check repository status**
+- [ ] **Step 8: Check repository status**
 
 Run: `git status --short`
 
@@ -233,7 +241,7 @@ Expected: clean, or only intentional uncommitted files if verification produced 
 - `Dockerfile` builds successfully.
 - `.dockerignore` excludes local/generated/secrets files from build context while allowing `.env.example`.
 - `docker-compose.yml` defines `app` and `valkey` services.
-- Compose uses `.env` and has defaults for `VALKEY_URL`, `HTTP_HOST`, and `HTTP_PORT`.
+- Compose uses optional `.env`, has defaults for `VALKEY_URL`, pins container `HTTP_HOST` to `0.0.0.0` and container `HTTP_PORT` to `3000`, and uses `APP_HTTP_PORT` for the host port.
 - `docker compose up --build -d` starts both services.
 - `GET /healthz` returns `{ "status": "ok" }` from the containerized app.
 - `bun test`, `bun run typecheck`, and `bun run build` pass outside Docker.
