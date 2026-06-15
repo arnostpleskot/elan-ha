@@ -1,4 +1,4 @@
-import mqtt, { type MqttClient } from "mqtt";
+import mqtt, { type IClientOptions, type MqttClient } from "mqtt";
 import type { Logger } from "pino";
 import type { AppConfig } from "../config/env";
 
@@ -6,15 +6,15 @@ export const createMqttClient = (config: AppConfig["mqtt"], logger: Logger): Mqt
   const mqttLogger = logger.child({ module: "mqtt" });
   const commandTopic = `${config.baseTopic}/switch/+/set`;
 
-  const options: Record<string, string> = {};
-  if (config.username) {
-    options.username = config.username;
+  const connectOptions: IClientOptions = {};
+  if (config.username !== undefined) {
+    connectOptions.username = config.username;
   }
-  if (config.password) {
-    options.password = config.password;
+  if (config.password !== undefined) {
+    connectOptions.password = config.password;
   }
 
-  const client = mqtt.connect(config.url, options);
+  const client = mqtt.connect(config.url, connectOptions);
 
   client.on("connect", () => {
     mqttLogger.info({ url: config.url }, "mqtt connected");
