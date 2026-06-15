@@ -5,15 +5,17 @@ export const normalizeTopicSegment = (value: string): string =>
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
 
-const joinTopic = (...segments: string[]): string => segments.map(normalizeTopicSegment).filter(Boolean).join("/");
+const trimTopicBoundary = (value: string): string => value.trim().replace(/^\/+|\/+$/g, "");
+
+const joinTopic = (...segments: string[]): string => segments.map(trimTopicBoundary).filter(Boolean).join("/");
 
 export const switchDiscoveryTopic = (discoveryPrefix: string, objectId: string): string =>
-  `${joinTopic(discoveryPrefix, "switch", objectId)}/config`;
+  joinTopic(discoveryPrefix, "switch", normalizeTopicSegment(objectId), "config");
 
 export const switchStateTopic = (baseTopic: string, objectId: string): string =>
-  joinTopic(baseTopic, "switch", objectId, "state");
+  joinTopic(baseTopic, "switch", normalizeTopicSegment(objectId), "state");
 
 export const switchCommandTopic = (baseTopic: string, objectId: string): string =>
-  joinTopic(baseTopic, "switch", objectId, "set");
+  joinTopic(baseTopic, "switch", normalizeTopicSegment(objectId), "set");
 
 export const availabilityTopic = (baseTopic: string): string => joinTopic(baseTopic, "status");
