@@ -1,5 +1,5 @@
 import type { SwitchChannel } from "../devices/types";
-import { availabilityTopic, switchCommandTopic, switchStateTopic } from "./topics";
+import { availabilityTopic, normalizeTopicSegment, switchCommandTopic, switchStateTopic } from "./topics";
 
 export type SwitchDiscoveryPayload = {
   name: string;
@@ -27,7 +27,7 @@ type BuildSwitchDiscoveryPayloadInput = {
   channel: SwitchChannel;
 };
 
-export const buildSwitchDiscoveryPayload = ({ baseTopic, channel }: BuildSwitchDiscoveryPayloadInput): SwitchDiscoveryPayload => ({
+export const buildSwitchDiscoveryPayload = ({ baseTopic, bridgeName, channel }: BuildSwitchDiscoveryPayloadInput): SwitchDiscoveryPayload => ({
   name: channel.name,
   unique_id: channel.objectId,
   object_id: channel.objectId,
@@ -43,6 +43,6 @@ export const buildSwitchDiscoveryPayload = ({ baseTopic, channel }: BuildSwitchD
     manufacturer: "ELKO EP",
     model: "RFSA-66M",
     name: `RFSA-66M ${channel.deviceIndex}`,
-    via_device: "inels_bridge",
+    via_device: normalizeTopicSegment(bridgeName),
   },
 });

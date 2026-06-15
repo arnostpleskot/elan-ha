@@ -36,6 +36,22 @@ describe("MQTT discovery", () => {
     });
   });
 
+  test("normalizes bridgeName into via_device", () => {
+    const payload = buildSwitchDiscoveryPayload({
+      baseTopic: "inels",
+      bridgeName: "My Custom Bridge",
+      channel: {
+        deviceId: "rfsa66m_1",
+        deviceIndex: 1,
+        channel: 1,
+        name: "RFSA-66M 1 Channel 1",
+        objectId: "inels_rfsa66m_1_ch1",
+      },
+    });
+
+    expect(payload.device.via_device).toBe("my_custom_bridge");
+  });
+
   test("preserves configured topic prefixes and normalizes object ids in topics", () => {
     const payload = buildSwitchDiscoveryPayload({
       baseTopic: "Bridge/Runtime Prefix",
