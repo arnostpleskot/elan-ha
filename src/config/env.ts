@@ -41,6 +41,10 @@ const parseInteger = (env: EnvInput, name: string, defaultValue: number): number
     return defaultValue;
   }
 
+  if (!/^-?\d+$/.test(rawValue)) {
+    throw new Error(`${name} must be a valid integer`);
+  }
+
   const value = Number.parseInt(rawValue, 10);
   if (!Number.isInteger(value)) {
     throw new Error(`${name} must be a valid integer`);

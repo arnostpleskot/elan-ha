@@ -41,4 +41,17 @@ describe("parseEnv", () => {
       }),
     ).toThrow("HTTP_PORT must be a valid integer");
   });
+
+  test("throws when a numeric setting contains trailing text", () => {
+    expect(() =>
+      parseEnv({
+        RF003_BASE_URL: "http://rf003.local",
+        RF003_USERNAME: "admin",
+        RF003_PASSWORD: "secret",
+        MQTT_URL: "mqtt://mosquitto.local:1883",
+        VALKEY_URL: "redis://valkey.local:6379",
+        HTTP_PORT: "123abc",
+      }),
+    ).toThrow("HTTP_PORT must be a valid integer");
+  });
 });
