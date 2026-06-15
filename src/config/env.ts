@@ -35,6 +35,21 @@ const requireEnv = (env: EnvInput, name: string): string => {
   return value;
 };
 
+const requireUrlWithProtocol = (env: EnvInput, name: string, allowedProtocols: string[]): string => {
+  const value = requireEnv(env, name);
+
+  try {
+    const url = new URL(value);
+    if (allowedProtocols.includes(url.protocol)) {
+      return value;
+    }
+  } catch {
+    // Fall through to the common validation error below.
+  }
+
+  throw new Error(`${name} must be a valid URL with protocol ${allowedProtocols.join(" or ")}`);
+};
+
 const parseInteger = (env: EnvInput, name: string, defaultValue: number): number => {
   const rawValue = env[name];
   if (!rawValue) {
@@ -82,13 +97,13 @@ const parseLogLevel = (value: string | undefined): AppConfig["logLevel"] => {
 
 export const parseEnv = (env: EnvInput): AppConfig => {
   const rf003: AppConfig["rf003"] = {
-    baseUrl: requireEnv(env, "RF003_BASE_URL"),
+    baseUrl: requireUrlWithProtocol(env, "RF003_BASE_URL", ["http:", "https:"]),
     username: requireEnv(env, "RF003_USERNAME"),
     password: requireEnv(env, "RF003_PASSWORD"),
   };
 
   const mqtt: AppConfig["mqtt"] = {
-    url: requireEnv(env, "MQTT_URL"),
+    url: requireUrlWithProtocol(env, "MQTT_URL", ["mqtt:", "mqtts:"]),
     discoveryPrefix: env.MQTT_DISCOVERY_PREFIX ?? "homeassistant",
     baseTopic: env.MQTT_BASE_TOPIC ?? "inels",
   };
@@ -105,7 +120,7 @@ export const parseEnv = (env: EnvInput): AppConfig => {
     rf003,
     mqtt,
     valkey: {
-      url: requireEnv(env, "VALKEY_URL"),
+      url: requireUrlWithProtocol(env, "VALKEY_URL", ["redis:", "rediss:"]),
     },
     poll: {
       fullStateIntervalMs: parsePositiveInteger(env, "POLL_FULL_STATE_INTERVAL_MS", 60_000),

@@ -29,6 +29,42 @@ describe("parseEnv", () => {
     expect(() => parseEnv({})).toThrow("Missing required environment variable RF003_BASE_URL");
   });
 
+  test("throws when RF003_BASE_URL is not a URL", () => {
+    expect(() =>
+      parseEnv({
+        RF003_BASE_URL: "not-a-url",
+        RF003_USERNAME: "admin",
+        RF003_PASSWORD: "secret",
+        MQTT_URL: "mqtt://mosquitto.local:1883",
+        VALKEY_URL: "redis://valkey.local:6379",
+      }),
+    ).toThrow("RF003_BASE_URL must be a valid URL with protocol http: or https:");
+  });
+
+  test("throws when MQTT_URL uses an invalid protocol", () => {
+    expect(() =>
+      parseEnv({
+        RF003_BASE_URL: "http://rf003.local",
+        RF003_USERNAME: "admin",
+        RF003_PASSWORD: "secret",
+        MQTT_URL: "http://broker.local",
+        VALKEY_URL: "redis://valkey.local:6379",
+      }),
+    ).toThrow("MQTT_URL must be a valid URL with protocol mqtt: or mqtts:");
+  });
+
+  test("throws when VALKEY_URL uses an invalid protocol", () => {
+    expect(() =>
+      parseEnv({
+        RF003_BASE_URL: "http://rf003.local",
+        RF003_USERNAME: "admin",
+        RF003_PASSWORD: "secret",
+        MQTT_URL: "mqtt://mosquitto.local:1883",
+        VALKEY_URL: "ftp://valkey.local",
+      }),
+    ).toThrow("VALKEY_URL must be a valid URL with protocol redis: or rediss:");
+  });
+
   test("throws when a numeric setting is invalid", () => {
     expect(() =>
       parseEnv({
