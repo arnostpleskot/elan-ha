@@ -3,6 +3,7 @@ import { availabilityTopic, normalizeTopicSegment, switchCommandTopic, switchSta
 type SwitchChannel = {
   deviceId: string;
   deviceIndex: number;
+  channel: number;
   name: string;
   objectId: string;
 };
