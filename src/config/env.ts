@@ -52,6 +52,22 @@ const parseInteger = (env: EnvInput, name: string, defaultValue: number): number
   return value;
 };
 
+const parsePositiveInteger = (env: EnvInput, name: string, defaultValue: number): number => {
+  const value = parseInteger(env, name, defaultValue);
+  if (value <= 0) {
+    throw new Error(`${name} must be greater than 0`);
+  }
+  return value;
+};
+
+const parseHttpPort = (env: EnvInput, name: string, defaultValue: number): number => {
+  const value = parseInteger(env, name, defaultValue);
+  if (value < 1 || value > 65_535) {
+    throw new Error(`${name} must be between 1 and 65535`);
+  }
+  return value;
+};
+
 const parseLogLevel = (value: string | undefined): AppConfig["logLevel"] => {
   if (!value) {
     return "info";
@@ -92,12 +108,12 @@ export const parseEnv = (env: EnvInput): AppConfig => {
       url: requireEnv(env, "VALKEY_URL"),
     },
     poll: {
-      fullStateIntervalMs: parseInteger(env, "POLL_FULL_STATE_INTERVAL_MS", 60_000),
-      deviceStateIntervalMs: parseInteger(env, "POLL_DEVICE_STATE_INTERVAL_MS", 300_000),
+      fullStateIntervalMs: parsePositiveInteger(env, "POLL_FULL_STATE_INTERVAL_MS", 60_000),
+      deviceStateIntervalMs: parsePositiveInteger(env, "POLL_DEVICE_STATE_INTERVAL_MS", 300_000),
     },
     http: {
       host: env.HTTP_HOST ?? "0.0.0.0",
-      port: parseInteger(env, "HTTP_PORT", 3000),
+      port: parseHttpPort(env, "HTTP_PORT", 3000),
     },
     logLevel: parseLogLevel(env.LOG_LEVEL),
   };

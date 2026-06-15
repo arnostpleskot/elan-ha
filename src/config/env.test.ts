@@ -54,4 +54,30 @@ describe("parseEnv", () => {
       }),
     ).toThrow("HTTP_PORT must be a valid integer");
   });
+
+  test("throws when a poll interval is not positive", () => {
+    expect(() =>
+      parseEnv({
+        RF003_BASE_URL: "http://rf003.local",
+        RF003_USERNAME: "admin",
+        RF003_PASSWORD: "secret",
+        MQTT_URL: "mqtt://mosquitto.local:1883",
+        VALKEY_URL: "redis://valkey.local:6379",
+        POLL_FULL_STATE_INTERVAL_MS: "0",
+      }),
+    ).toThrow("POLL_FULL_STATE_INTERVAL_MS must be greater than 0");
+  });
+
+  test("throws when an HTTP port is out of range", () => {
+    expect(() =>
+      parseEnv({
+        RF003_BASE_URL: "http://rf003.local",
+        RF003_USERNAME: "admin",
+        RF003_PASSWORD: "secret",
+        MQTT_URL: "mqtt://mosquitto.local:1883",
+        VALKEY_URL: "redis://valkey.local:6379",
+        HTTP_PORT: "70000",
+      }),
+    ).toThrow("HTTP_PORT must be between 1 and 65535");
+  });
 });
