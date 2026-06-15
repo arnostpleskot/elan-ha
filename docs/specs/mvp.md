@@ -327,7 +327,16 @@ Use Bun's test runner. Use fakes or mocks for RF-003, MQTT, and Valkey where pra
 - Add typed config parsing.
 - Add Elysia `GET /healthz`.
 
-### Phase 2: Pure Domain Modules
+### Phase 2: Docker Development Runtime
+
+- Add Dockerfile for the Bun app.
+- Add `.dockerignore`.
+- Add `docker-compose.yml` with app and Valkey services.
+- Wire Compose to `.env` values and document `.env.example` usage.
+- Verify `docker compose up` starts the app and `GET /healthz` works.
+- Keep Valkey running in Compose even before the app connects to it; later phases will use it for BullMQ and storage.
+
+### Phase 3: Pure Domain Modules
 
 - Add MQTT topic helpers.
 - Add MQTT Discovery payload generation.
@@ -335,21 +344,21 @@ Use Bun's test runner. Use fakes or mocks for RF-003, MQTT, and Valkey where pra
 - Add queue job names and payload types.
 - Add storage key helpers if useful.
 
-### Phase 3: Infrastructure Connections
+### Phase 4: Infrastructure Connections
 
 - Add Valkey client.
 - Add BullMQ queue, scheduler, and worker with concurrency `1`.
 - Add MQTT client with command subscriptions.
 - Add readiness checks for MQTT and Valkey.
 
-### Phase 4: RF-003 Gateway
+### Phase 5: RF-003 Gateway
 
 - Translate authentication/session behavior from the Homebridge proof of concept.
 - Inventory required RF-003 endpoints and payloads from proof-of-concept call sites.
 - Implement gateway client and XML parser.
 - Route all gateway calls through BullMQ.
 
-### Phase 5: End-to-End MVP Flow
+### Phase 6: End-to-End MVP Flow
 
 - Publish retained discovery for 24 switches.
 - Load device configuration from Valkey.
@@ -358,10 +367,10 @@ Use Bun's test runner. Use fakes or mocks for RF-003, MQTT, and Valkey where pra
 - Add polling jobs and metadata updates.
 - Add `/readyz` and force discovery endpoint.
 
-### Phase 6: Docker Packaging
+### Phase 7: Production Docker Packaging
 
-- Add Dockerfile.
-- Add Compose example for bridge plus Valkey if useful for development.
+- Harden Docker image for production.
+- Add Compose example for production-like deployment if useful.
 - Keep Home Assistant Supervisor packaging for a later stage.
 
 ## Acceptance Criteria

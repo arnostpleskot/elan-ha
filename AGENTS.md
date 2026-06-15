@@ -310,10 +310,14 @@ Prefer unit tests around pure modules first: parser, topics, discovery payloads,
 
 The deployment target is Docker. In later stages the container is expected to run under Home Assistant Supervisor.
 
-Future deployment work may include:
+Next deployment work should include:
 
 - Docker image
-- Compose example with Valkey dependency
+- Docker Compose development runtime with app and Valkey services
+
+Future deployment work may include:
+
+- Production Docker hardening
 - Home Assistant Add-on packaging
 - Prometheus metrics
 - OpenTelemetry tracing
