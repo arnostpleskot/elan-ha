@@ -9,7 +9,9 @@ export type App = {
 export const createApp = (config: AppConfig, logger: Logger): App => ({
   start: () => {
     const httpLogger = logger.child({ module: "http" });
-    const server = createHttpServer();
+    const server = createHttpServer({
+      getReadiness: async () => ({ ready: false, mqtt: false, valkey: false }),
+    });
 
     server.listen({
       hostname: config.http.host,
