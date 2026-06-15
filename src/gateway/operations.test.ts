@@ -8,6 +8,21 @@ describe("gateway operations", () => {
     await expect(createGatewayOperations(client).listDeviceIds()).resolves.toEqual(["09354", "00472"]);
   });
 
+  test("rejects invalid devices responses", async () => {
+    const client = { call: async () => [] } as GatewayClient;
+    await expect(createGatewayOperations(client).listDeviceIds()).rejects.toThrow("Invalid devices response");
+  });
+
+  test("rejects invalid device detail responses", async () => {
+    const client = { call: async () => null } as GatewayClient;
+    await expect(createGatewayOperations(client).getDeviceDetail("09354")).rejects.toThrow("Invalid device detail response");
+  });
+
+  test("rejects invalid device state responses", async () => {
+    const client = { call: async () => [] } as GatewayClient;
+    await expect(createGatewayOperations(client).getDeviceState("09354")).rejects.toThrow("Invalid device state response");
+  });
+
   test("writes switch and brightness commands", async () => {
     const calls: unknown[] = [];
     const client = { call: async (...args: unknown[]) => calls.push(args) } as GatewayClient;
