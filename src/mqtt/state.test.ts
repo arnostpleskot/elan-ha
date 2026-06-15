@@ -17,12 +17,18 @@ describe("MQTT state conversion", () => {
     );
   });
 
-  test("builds light off state when RF-003 brightness is null", () => {
-    expect(buildMqttStatePayload({ kind: "light", state: { brightness: null } })).toBe(JSON.stringify({ state: "OFF" }));
+  test("skips light state when RF-003 brightness is null", () => {
+    expect(buildMqttStatePayload({ kind: "light", state: { brightness: null } })).toBeUndefined();
   });
 
   test("throws when light state is missing brightness", () => {
     expect(() => buildMqttStatePayload({ kind: "light", state: {} })).toThrow("Missing light state: brightness");
+  });
+
+  test("throws when light brightness is not finite", () => {
+    expect(() => buildMqttStatePayload({ kind: "light", state: { brightness: Number.NaN } })).toThrow(
+      "Invalid light state: brightness",
+    );
   });
 
   test("converts brightness boundaries", () => {
@@ -38,5 +44,10 @@ describe("MQTT state conversion", () => {
     expect(haBrightnessToRf003(-1)).toBe(0);
     expect(haBrightnessToRf003(256)).toBe(100);
     expect(haBrightnessToRf003(1)).toBe(1);
+  });
+
+  test("throws when brightness conversion input is not finite", () => {
+    expect(() => rf003BrightnessToHa(Number.NaN)).toThrow("Invalid RF-003 brightness");
+    expect(() => haBrightnessToRf003(Number.NaN)).toThrow("Invalid Home Assistant brightness");
   });
 });
