@@ -13,7 +13,10 @@
     "build": "bun build src/index.ts --outdir dist --target bun"
   },
   "dependencies": {
+    "bullmq": "^5.78.1",
     "elysia": "latest",
+    "ioredis": "^5.11.1",
+    "mqtt": "^5.15.1",
     "pino": "latest"
   },
   "devDependencies": {
