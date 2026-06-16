@@ -10,6 +10,7 @@ import {
   createGatewayWorkerDeps,
   createMqttCommandEnqueuer,
   enqueueStartupGatewayJobs,
+  scheduleStartupGatewayJobs,
 } from "./app";
 
 const config: AppConfig = {
@@ -245,6 +246,24 @@ describe("app composition helpers", () => {
         { name: GatewayJobName.PollFullState, data: {}, opts: { priority: JobPriority.Poll } },
       ],
     ]);
+  });
+
+  test("startup gateway job scheduling rejection is caught and logged", async () => {
+    const err = new Error("scheduler down");
+    const errors: unknown[][] = [];
+
+    await scheduleStartupGatewayJobs(
+      {
+        add: async () => undefined,
+        upsertJobScheduler: async () => {
+          throw err;
+        },
+      },
+      config,
+      { error: (...args: unknown[]) => errors.push(args) },
+    );
+
+    expect(errors).toEqual([[{ err }, "failed to enqueue startup gateway jobs"]]);
   });
 
   test("HTTP getDevices returns the Valkey registry", async () => {

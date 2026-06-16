@@ -75,6 +75,10 @@ type GatewaySchedulerQueue = GatewayCommandQueue & {
   ) => Promise<unknown> | unknown;
 };
 
+type AppLogger = {
+  error: (obj: unknown, msg: string) => void;
+};
+
 export const isRecentIsoTimestamp = (value: string | null, nowMs: number, maxAgeMs: number): boolean => {
   if (value === null) {
     return false;
@@ -121,6 +125,18 @@ export const enqueueStartupGatewayJobs = async (queue: GatewaySchedulerQueue, co
     data: {},
     opts: { priority: JobPriority.Poll },
   });
+};
+
+export const scheduleStartupGatewayJobs = async (
+  queue: GatewaySchedulerQueue,
+  config: AppConfig,
+  logger: AppLogger,
+): Promise<void> => {
+  try {
+    await enqueueStartupGatewayJobs(queue, config);
+  } catch (err) {
+    logger.error({ err }, "failed to enqueue startup gateway jobs");
+  }
 };
 
 export const createMqttCommandEnqueuer = ({
@@ -220,7 +236,8 @@ export const createApp = (config: AppConfig, logger: Logger): App => ({
     const client = createGatewayClient(config.rf003, session, logger);
     const operations = createGatewayOperations(client);
     createGatewayWorker(connection, logger, createGatewayWorkerDeps({ config, valkey, mqttClient, operations }));
-    void enqueueStartupGatewayJobs(gatewayQueue, config);
+    const appLogger = logger.child({ module: "app" });
+    void scheduleStartupGatewayJobs(gatewayQueue, config, appLogger);
 
     const httpLogger = logger.child({ module: "http" });
     const server = createHttpServer(createAppHttpServerDeps({ config, mqttClient, valkey, queue: gatewayQueue }));
