@@ -135,11 +135,15 @@ const findStaleDiscoveryEntities = (
   previousEntities: DiscoveredEntity[],
   currentEntities: DiscoveredEntity[],
 ): DiscoveredEntity[] => {
-  const currentByObjectId = new Map(currentEntities.map((entity) => [entity.objectId, entity]));
+  const currentBySourceAddress = new Map(currentEntities.map((entity) => [entity.sourceAddress, entity]));
 
   return previousEntities.filter((previousEntity) => {
-    const currentEntity = currentByObjectId.get(previousEntity.objectId);
-    return currentEntity === undefined || currentEntity.kind !== previousEntity.kind;
+    const currentEntity = currentBySourceAddress.get(previousEntity.sourceAddress);
+    return (
+      currentEntity === undefined ||
+      currentEntity.kind !== previousEntity.kind ||
+      currentEntity.objectId !== previousEntity.objectId
+    );
   });
 };
 

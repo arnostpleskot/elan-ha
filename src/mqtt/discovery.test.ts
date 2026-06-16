@@ -13,19 +13,19 @@ describe("MQTT discovery", () => {
       name: "Strop - Chodba",
       productType: "RFSA-66M",
       rf003Type: "light",
-      objectId: "inels_09354",
+      objectId: "inels_9354",
     };
 
     expect(buildDiscoveryPayload({ baseTopic: "inels", bridgeName: "iNELS Bridge", entity })).toMatchObject({
       name: "Strop - Chodba",
-      unique_id: "inels_09354",
-      object_id: "inels_09354",
-      command_topic: "inels/switch/inels_09354/set",
-      state_topic: "inels/switch/inels_09354/state",
+      unique_id: "inels_9354",
+      object_id: "inels_9354",
+      command_topic: "inels/switch/inels_9354/set",
+      state_topic: "inels/switch/inels_9354/state",
       availability_topic: "inels/status",
       payload_available: "online",
       payload_not_available: "offline",
-      device: { identifiers: ["inels_09354"], model: "RFSA-66M", name: "Strop - Chodba" },
+      device: { identifiers: ["inels_9354"], model: "RFSA-66M", name: "Strop - Chodba" },
     });
   });
 

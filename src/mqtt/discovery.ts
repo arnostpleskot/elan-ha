@@ -17,7 +17,7 @@ type DiscoveryInput = {
 };
 
 const deviceBlock = (bridgeName: string, entity: DiscoveredEntity) => ({
-  identifiers: [`inels_${entity.id}`],
+  identifiers: [entity.objectId],
   manufacturer: "ELKO EP" as const,
   model: entity.productType,
   name: entity.name,

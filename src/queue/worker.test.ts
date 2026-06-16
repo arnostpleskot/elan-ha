@@ -166,8 +166,14 @@ describe("gateway worker", () => {
     expect(cleared).toEqual([switchEntity]);
   });
 
-  test("discovery clears previous entity when object ID remains but kind changes", async () => {
-    const previousLight: DiscoveredEntity = { ...lightEntity, id: "09354", objectId: switchEntity.objectId };
+  test("discovery clears previous entity when source address remains but kind changes", async () => {
+    const previousLight: DiscoveredEntity = {
+      ...lightEntity,
+      id: "09354",
+      sourceId: "09354",
+      sourceAddress: switchEntity.sourceAddress,
+      objectId: switchEntity.objectId,
+    };
     const cleared: DiscoveredEntity[] = [];
     const deps = makeDeps({
       loadRegistry: async () => [previousLight],
@@ -180,6 +186,22 @@ describe("gateway worker", () => {
     await capturedProcessor?.({ name: GatewayJobName.PublishDiscovery, data: {} });
 
     expect(cleared).toEqual([previousLight]);
+  });
+
+  test("discovery clears previous entity when source address remains but object ID changes", async () => {
+    const previousSwitch: DiscoveredEntity = { ...switchEntity, objectId: "inels_09354" };
+    const cleared: DiscoveredEntity[] = [];
+    const deps = makeDeps({
+      loadRegistry: async () => [previousSwitch],
+      clearDiscovery: async (entity: DiscoveredEntity) => {
+        cleared.push(entity);
+      },
+    });
+    createGatewayWorker({ host: "localhost", port: 6379 }, logger, deps);
+
+    await capturedProcessor?.({ name: GatewayJobName.PublishDiscovery, data: {} });
+
+    expect(cleared).toEqual([previousSwitch]);
   });
 
   test("discovery does not clear unchanged entities", async () => {

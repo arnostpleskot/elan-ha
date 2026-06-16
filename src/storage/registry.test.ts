@@ -102,6 +102,14 @@ describe("device registry storage", () => {
     expect(warnings).toHaveLength(1);
   });
 
+  test("returns an empty registry and logs warn when sourceAddress is malformed", async () => {
+    const redis = { get: async () => JSON.stringify([{ ...entity, sourceAddress: 9354.5 }]) };
+    const { logger, warnings } = makeLogger();
+
+    expect(await loadDeviceRegistry(redis, logger)).toEqual([]);
+    expect(warnings).toHaveLength(1);
+  });
+
   test("returns an empty registry and logs warn when a light entity is malformed", async () => {
     const light = {
       ...entity,
