@@ -4,6 +4,7 @@ import type { AppConfig } from "../config/env";
 import type { DiscoveredEntity } from "../devices/types";
 import type { GatewayOperations } from "../gateway/operations";
 import { GatewayJobName, JobPriority } from "../queue/jobs";
+import { lastSuccessKey } from "../storage/keys";
 import {
   createAppHttpServerDeps,
   createGatewayWorkerDeps,
@@ -216,7 +217,6 @@ describe("app composition helpers", () => {
       mqttClient: { connected: true },
       valkey: { get: async () => null, ping: async () => "PONG" },
       queue: { add: async (...args: unknown[]) => added.push(args) },
-      session: { authenticate: async () => undefined },
     });
 
     await deps.forceDiscovery();
@@ -244,20 +244,36 @@ describe("app composition helpers", () => {
       mqttClient: { connected: true },
       valkey: { get: async () => JSON.stringify([switchEntity]), ping: async () => "PONG" },
       queue: { add: async () => undefined },
-      session: { authenticate: async () => undefined },
     });
 
     await expect(deps.getDevices()).resolves.toEqual([switchEntity]);
   });
 
-  test("readiness includes RF-003 session check", async () => {
+  test("readiness marks RF-003 ready when worker success metadata exists", async () => {
+    const keys: string[] = [];
+    const deps = createAppHttpServerDeps({
+      mqttClient: { connected: true },
+      valkey: {
+        get: async (key) => {
+          keys.push(key);
+          return "2026-06-16T00:00:00.000Z";
+        },
+        ping: async () => "PONG",
+      },
+      queue: { add: async () => undefined },
+    });
+
+    await expect(deps.getReadiness()).resolves.toEqual({ ready: true, mqtt: true, valkey: true, rf003: true });
+    expect(keys).toContain(lastSuccessKey());
+  });
+
+  test("readiness marks RF-003 down when worker success metadata is missing", async () => {
     const deps = createAppHttpServerDeps({
       mqttClient: { connected: true },
       valkey: { get: async () => null, ping: async () => "PONG" },
       queue: { add: async () => undefined },
-      session: { authenticate: async () => undefined },
     });
 
-    await expect(deps.getReadiness()).resolves.toEqual({ ready: true, mqtt: true, valkey: true, rf003: true });
+    await expect(deps.getReadiness()).resolves.toEqual({ ready: false, mqtt: true, valkey: true, rf003: false });
   });
 });

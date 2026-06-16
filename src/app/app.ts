@@ -4,7 +4,6 @@ import type { DiscoveredEntity } from "../devices/types";
 import { createGatewayClient } from "../gateway/client";
 import { createGatewayOperations, type GatewayOperations } from "../gateway/operations";
 import { createGatewaySession } from "../gateway/session";
-import type { GatewaySession } from "../gateway/types";
 import { createMqttClient, type EnqueueMqttCommand, type MqttCommand } from "../mqtt/client";
 import { buildDiscoveryPayload } from "../mqtt/discovery";
 import { buildMqttStatePayload } from "../mqtt/state";
@@ -72,19 +71,13 @@ export const createAppHttpServerDeps = ({
   mqttClient,
   valkey,
   queue,
-  session,
 }: {
   mqttClient: AppHttpMqttClient;
   valkey: AppHttpValkey;
   queue: GatewayQueue;
-  session: Pick<GatewaySession, "authenticate">;
 }) => ({
   getReadiness: () =>
-    checkReadiness(mqttClient as never, valkey as never, async () => {
-      // Authentication is a lightweight session check and does not issue device RF calls.
-      await session.authenticate();
-      return true;
-    }),
+    checkReadiness(mqttClient as never, valkey as never, async () => (await valkey.get(lastSuccessKey())) !== null),
   forceDiscovery: async () => {
     await queue.add(GatewayJobName.ForceDiscovery, {}, { priority: JobPriority.Discovery });
   },
@@ -199,7 +192,7 @@ export const createApp = (config: AppConfig, logger: Logger): App => ({
     void enqueueStartupGatewayJobs(gatewayQueue, config);
 
     const httpLogger = logger.child({ module: "http" });
-    const server = createHttpServer(createAppHttpServerDeps({ mqttClient, valkey, queue: gatewayQueue, session }));
+    const server = createHttpServer(createAppHttpServerDeps({ mqttClient, valkey, queue: gatewayQueue }));
 
     server.listen({
       hostname: config.http.host,
