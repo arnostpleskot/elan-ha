@@ -890,6 +890,20 @@ If Step 1, 2, or 3 required code fixes, run: `git add <fixed-files> && git commi
 
 Expected: commit succeeds. If no fixes were needed, do not create an empty commit.
 
+## Follow-Up Operational Notes
+
+These notes are outside the Phase 8 semantic-entity implementation, but should be captured for the next observability/storage hardening plan.
+
+1. RF-003 401 retry logging should not spam warning-level logs. RF-003 returns 401 as part of the expected session renewal flow, roughly every 30 minutes. Lower the log level for the first retryable 401 from Pino level 40 (`warn`) to level 30 (`info`), while keeping persistent authentication failure after retry at `warn` or `error`.
+
+2. Keep production JSON log timestamps machine-friendly by default unless deployment logs are consumed directly by humans. In development, `pino-pretty` already renders readable timestamps. For production, prefer leaving Pino's default numeric `time` field for log shippers and relying on Docker/Loki/Grafana timestamps; optionally add a `LOG_TIME_FORMAT=epoch|iso` style setting later if raw container logs need ISO timestamps.
+
+3. Debug logging should include request/response traces for both external sides of the bridge: RF-003 HTTP and MQTT. Logs must redact sensitive fields before output. Use Pino redaction for fields such as RF-003 username/password, session cookies, MQTT username/password, authorization headers, and any command payload fields that could contain credentials in the future.
+
+4. Valkey persistence should be optional for deployments on flash or memory-card storage. Current Valkey logs show periodic background saves, for example `100 changes in 300 seconds. Saving...`, which means write amplification can reduce storage lifetime. The registry/cache mainly saves startup time; RF-003 remains authoritative and discovery can rebuild state after restart. Add a deployment/config option to run Valkey without disk persistence for cache-heavy installs, while keeping persistence available for users who want BullMQ/registry metadata to survive full stack restarts.
+
+5. Discovery/cache writes should avoid unnecessary churn. Before saving `inels:devices` and state keys, compare the new serialized value with the existing value or otherwise skip writes when the content is unchanged. This reduces Valkey dirty pages and background saves, especially if forced or scheduled discovery republishes the same registry repeatedly.
+
 ## Self-Review
 
 - Spec coverage: The plan covers semantic classification, address-based identity, fan discovery, on/off light discovery, dimmable light discovery, leading-zero API IDs, stale discovery cleanup, storage registry fields, MQTT commands, and verification.
