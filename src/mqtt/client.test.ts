@@ -6,6 +6,7 @@ type MqttHandler = (...args: unknown[]) => void;
 
 const handlers = new Map<string, MqttHandler>();
 const subscriptions: string[] = [];
+const publishes: Array<[string, string, { retain?: boolean }?]> = [];
 
 const mqttConnect = mock((_url: string, _options: unknown) => ({
   on: (event: string, handler: MqttHandler) => {
@@ -14,6 +15,9 @@ const mqttConnect = mock((_url: string, _options: unknown) => ({
   subscribe: (topic: string, callback?: (err?: Error) => void) => {
     subscriptions.push(topic);
     callback?.();
+  },
+  publish: (topic: string, payload: string, opts?: { retain?: boolean }) => {
+    publishes.push(opts === undefined ? [topic, payload] : [topic, payload, opts]);
   },
 }));
 
@@ -36,6 +40,7 @@ const logger = {
 beforeEach(() => {
   handlers.clear();
   subscriptions.length = 0;
+  publishes.length = 0;
   mqttConnect.mockClear();
 });
 
@@ -46,6 +51,14 @@ describe("createMqttClient", () => {
     handlers.get("connect")?.();
 
     expect(subscriptions).toEqual(["inels/switch/+/set", "inels/light/+/set"]);
+  });
+
+  test("publishes retained online availability on connect", () => {
+    createMqttClient(config, logger);
+
+    handlers.get("connect")?.();
+
+    expect(publishes).toContainEqual(["inels/status", "online", { retain: true }]);
   });
 
   test("normalizes base topic boundaries for subscriptions and dispatch", () => {
@@ -81,6 +94,41 @@ describe("createMqttClient", () => {
     handlers.get("message")?.("inels/light/inels_47742/set", Buffer.from(JSON.stringify({ brightness: 128 })));
 
     expect(commands).toEqual([{ kind: "light", objectId: "inels_47742", brightness: 50 }]);
+  });
+
+  test("dispatches light OFF state-only command as zero RF-003 brightness", () => {
+    const commands: unknown[] = [];
+    createMqttClient(config, logger, async (command) => {
+      commands.push(command);
+    });
+
+    handlers.get("message")?.("inels/light/inels_47742/set", Buffer.from(JSON.stringify({ state: "OFF" })));
+
+    expect(commands).toEqual([{ kind: "light", objectId: "inels_47742", brightness: 0 }]);
+  });
+
+  test("dispatches light ON state-only command as full RF-003 brightness", () => {
+    const commands: unknown[] = [];
+    createMqttClient(config, logger, async (command) => {
+      commands.push(command);
+    });
+
+    handlers.get("message")?.("inels/light/inels_47742/set", Buffer.from(JSON.stringify({ state: "ON" })));
+
+    expect(commands).toEqual([{ kind: "light", objectId: "inels_47742", brightness: 100 }]);
+  });
+
+  test("dispatches light OFF command with brightness as zero RF-003 brightness", () => {
+    const commands: unknown[] = [];
+    createMqttClient(config, logger, async (command) => {
+      commands.push(command);
+    });
+
+    handlers
+      .get("message")
+      ?.("inels/light/inels_47742/set", Buffer.from(JSON.stringify({ state: "OFF", brightness: 128 })));
+
+    expect(commands).toEqual([{ kind: "light", objectId: "inels_47742", brightness: 0 }]);
   });
 
   test("does not dispatch invalid switch payload", () => {

@@ -19,6 +19,9 @@ describe("MQTT discovery", () => {
       object_id: "inels_09354",
       command_topic: "inels/switch/inels_09354/set",
       state_topic: "inels/switch/inels_09354/state",
+      availability_topic: "inels/status",
+      payload_available: "online",
+      payload_not_available: "offline",
       device: { identifiers: ["inels_09354"], model: "RFSA-66M", name: "Strop - Chodba" },
     });
   });
@@ -41,6 +44,9 @@ describe("MQTT discovery", () => {
       object_id: "inels_47742",
       command_topic: "inels/light/inels_47742/set",
       state_topic: "inels/light/inels_47742/state",
+      availability_topic: "inels/status",
+      payload_available: "online",
+      payload_not_available: "offline",
       schema: "json",
       brightness: true,
       brightness_scale: 255,

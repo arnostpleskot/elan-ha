@@ -46,6 +46,28 @@ describe("RF-003 entity registry", () => {
     });
   });
 
+  test("classifies a device with both on and brightness as a dimmable light", () => {
+    const entity = classifyGatewayDevice({
+      id: "47742",
+      detail: {
+        "device info": { label: "Strop - Loznice", "product type": "RFDA-71B", type: "dimmed light" },
+        "actions info": {
+          on: { type: "bool" },
+          brightness: { type: "int", min: 0, max: 100, step: 1 },
+        },
+        "primary actions": ["on", "brightness"],
+      },
+      state: { on: true, brightness: 42 },
+    });
+
+    expect(entity).toMatchObject({
+      id: "47742",
+      kind: "light",
+      capabilities: ["brightness"],
+      objectId: "inels_47742",
+    });
+  });
+
   test("returns undefined for unsupported action shapes", () => {
     const entity = classifyGatewayDevice({
       id: "12345",

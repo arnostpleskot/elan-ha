@@ -7,7 +7,13 @@ import { createGatewaySession } from "../gateway/session";
 import { createMqttClient, type EnqueueMqttCommand, type MqttCommand } from "../mqtt/client";
 import { buildDiscoveryPayload } from "../mqtt/discovery";
 import { buildMqttStatePayload } from "../mqtt/state";
-import { lightDiscoveryTopic, lightStateTopic, switchDiscoveryTopic, switchStateTopic } from "../mqtt/topics";
+import {
+  availabilityTopic,
+  lightDiscoveryTopic,
+  lightStateTopic,
+  switchDiscoveryTopic,
+  switchStateTopic,
+} from "../mqtt/topics";
 import { checkReadiness } from "../observability/readiness";
 import { GatewayJobName, JobPriority } from "../queue/jobs";
 import { createGatewayQueue } from "../queue/scheduler";
@@ -42,8 +48,14 @@ type WorkerDepsMqttClient = {
   publish: (topic: string, payload: string, opts?: { retain?: boolean }) => unknown;
 };
 
+type GatewayJobOptions = {
+  priority: number;
+  attempts: number;
+  backoff: { type: "exponential"; delay: number };
+};
+
 type CommandQueue = {
-  add: (name: string, data: unknown, opts?: { priority?: number }) => Promise<unknown> | unknown;
+  add: (name: string, data: unknown, opts?: GatewayJobOptions) => Promise<unknown> | unknown;
 };
 
 type CommandValkey = {
@@ -60,18 +72,14 @@ type AppHttpValkey = {
 };
 
 type GatewayCommandQueue = {
-  add: (
-    name: string,
-    data: unknown,
-    opts?: { priority?: number },
-  ) => Promise<unknown> | unknown;
+  add: (name: string, data: unknown, opts?: GatewayJobOptions) => Promise<unknown> | unknown;
 };
 
 type GatewaySchedulerQueue = GatewayCommandQueue & {
   upsertJobScheduler: (
     id: string,
     repeat: { every: number },
-    template: { name: string; data: unknown; opts?: { priority?: number } },
+    template: { name: string; data: unknown; opts?: GatewayJobOptions },
   ) => Promise<unknown> | unknown;
 };
 
@@ -91,6 +99,22 @@ export const isRecentIsoTimestamp = (value: string | null, nowMs: number, maxAge
 
   const ageMs = nowMs - timestampMs;
   return ageMs >= 0 && ageMs <= maxAgeMs;
+};
+
+const gatewayJobOptions = (priority: number): GatewayJobOptions => ({
+  priority,
+  attempts: 3,
+  backoff: { type: "exponential", delay: 1_000 },
+});
+
+const commandJobOptions = (): GatewayJobOptions => gatewayJobOptions(JobPriority.Command);
+
+const discoveryJobOptions = (): GatewayJobOptions => gatewayJobOptions(JobPriority.Discovery);
+
+const pollJobOptions = (): GatewayJobOptions => gatewayJobOptions(JobPriority.Poll);
+
+const publishAvailability = (mqttClient: WorkerDepsMqttClient, baseTopic: string): void => {
+  mqttClient.publish(availabilityTopic(baseTopic), "online", { retain: true });
 };
 
 export const createAppHttpServerDeps = ({
@@ -113,17 +137,17 @@ export const createAppHttpServerDeps = ({
       ),
     ),
   forceDiscovery: async () => {
-    await queue.add(GatewayJobName.ForceDiscovery, {}, { priority: JobPriority.Discovery });
+    await queue.add(GatewayJobName.ForceDiscovery, {}, discoveryJobOptions());
   },
   getDevices: () => loadDeviceRegistry(valkey),
 });
 
 export const enqueueStartupGatewayJobs = async (queue: GatewaySchedulerQueue, config: AppConfig): Promise<void> => {
-  await queue.add(GatewayJobName.ForceDiscovery, {}, { priority: JobPriority.Discovery });
+  await queue.add(GatewayJobName.ForceDiscovery, {}, discoveryJobOptions());
   await queue.upsertJobScheduler(GatewayJobName.PollFullState, { every: config.poll.fullStateIntervalMs }, {
     name: GatewayJobName.PollFullState,
     data: {},
-    opts: { priority: JobPriority.Poll },
+    opts: pollJobOptions(),
   });
 };
 
@@ -169,7 +193,7 @@ export const createMqttCommandEnqueuer = ({
       await queue.add(
         GatewayJobName.SetOutput,
         { deviceId: entity.id, state: command.state },
-        { priority: JobPriority.Command },
+        commandJobOptions(),
       );
       return;
     }
@@ -177,7 +201,7 @@ export const createMqttCommandEnqueuer = ({
     await queue.add(
       GatewayJobName.SetBrightness,
       { deviceId: entity.id, brightness: command.brightness },
-      { priority: JobPriority.Command },
+      commandJobOptions(),
     );
   };
 };
@@ -200,6 +224,7 @@ export const createGatewayWorkerDeps = ({
     await valkey.set(stateKey(deviceId), JSON.stringify(state));
   },
   publishDiscovery: async (entities) => {
+    publishAvailability(mqttClient, config.mqtt.baseTopic);
     for (const entity of entities) {
       mqttClient.publish(
         discoveryTopic(config, entity),

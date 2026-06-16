@@ -2,7 +2,7 @@ import mqtt, { type IClientOptions, type MqttClient } from "mqtt";
 import type { Logger } from "pino";
 import type { AppConfig } from "../config/env";
 import { haBrightnessToRf003 } from "./state";
-import { lightCommandTopic, switchCommandTopic } from "./topics";
+import { availabilityTopic, lightCommandTopic, switchCommandTopic } from "./topics";
 
 export type MqttCommand =
   | { kind: "switch"; objectId: string; state: "ON" | "OFF" }
@@ -48,19 +48,37 @@ const parseLightCommandPayload = (payload: string): { brightness: number } | und
     return undefined;
   }
 
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    Array.isArray(parsed) ||
-    typeof (parsed as { brightness?: unknown }).brightness !== "number" ||
-    !Number.isInteger((parsed as { brightness: number }).brightness) ||
-    (parsed as { brightness: number }).brightness < 0 ||
-    (parsed as { brightness: number }).brightness > 255
-  ) {
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     return undefined;
   }
 
-  return { brightness: haBrightnessToRf003((parsed as { brightness: number }).brightness) };
+  const command = parsed as { state?: unknown; brightness?: unknown };
+  if (command.state !== undefined && command.state !== "ON" && command.state !== "OFF") {
+    return undefined;
+  }
+
+  if (command.state === "OFF") {
+    return { brightness: 0 };
+  }
+
+  if (command.brightness !== undefined) {
+    if (
+      typeof command.brightness !== "number" ||
+      !Number.isInteger(command.brightness) ||
+      command.brightness < 0 ||
+      command.brightness > 255
+    ) {
+      return undefined;
+    }
+
+    return { brightness: haBrightnessToRf003(command.brightness) };
+  }
+
+  if (command.state === "ON") {
+    return { brightness: 100 };
+  }
+
+  return undefined;
 };
 
 export const createMqttClient = (
@@ -83,6 +101,7 @@ export const createMqttClient = (
 
   client.on("connect", () => {
     mqttLogger.info({ url: config.url }, "mqtt connected");
+    client.publish(availabilityTopic(config.baseTopic), "online", { retain: true });
     for (const commandTopic of commandTopics) {
       client.subscribe(commandTopic, (err) => {
         if (err) {

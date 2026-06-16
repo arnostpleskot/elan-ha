@@ -54,6 +54,10 @@ const lightEntity: DiscoveredEntity = {
   brightness: { min: 0, max: 100, step: 1 },
 };
 
+const commandJobOptions = { priority: JobPriority.Command, attempts: 3, backoff: { type: "exponential", delay: 1_000 } };
+const discoveryJobOptions = { priority: JobPriority.Discovery, attempts: 3, backoff: { type: "exponential", delay: 1_000 } };
+const pollJobOptions = { priority: JobPriority.Poll, attempts: 3, backoff: { type: "exponential", delay: 1_000 } };
+
 describe("createGatewayWorkerDeps", () => {
   test("persists registry, states, and timestamps in Valkey", async () => {
     const sets: Array<[string, string]> = [];
@@ -103,6 +107,7 @@ describe("createGatewayWorkerDeps", () => {
     await deps.publishState(lightEntity, { brightness: null });
 
     expect(publishes).toEqual([
+      ["inels/status", "online", { retain: true }],
       [
         "homeassistant/switch/inels_09354/config",
         JSON.stringify({
@@ -112,6 +117,8 @@ describe("createGatewayWorkerDeps", () => {
           command_topic: "inels/switch/inels_09354/set",
           state_topic: "inels/switch/inels_09354/state",
           availability_topic: "inels/status",
+          payload_available: "online",
+          payload_not_available: "offline",
           payload_on: "ON",
           payload_off: "OFF",
           state_on: "ON",
@@ -135,6 +142,8 @@ describe("createGatewayWorkerDeps", () => {
           command_topic: "inels/light/inels_47742/set",
           state_topic: "inels/light/inels_47742/state",
           availability_topic: "inels/status",
+          payload_available: "online",
+          payload_not_available: "offline",
           schema: "json",
           brightness: true,
           brightness_scale: 255,
@@ -165,7 +174,7 @@ describe("createMqttCommandEnqueuer", () => {
     await enqueue({ kind: "switch", objectId: "inels_09354", state: "ON" });
 
     expect(added).toEqual([
-      [GatewayJobName.SetOutput, { deviceId: "09354", state: "ON" }, { priority: JobPriority.Command }],
+      [GatewayJobName.SetOutput, { deviceId: "09354", state: "ON" }, commandJobOptions],
     ]);
   });
 
@@ -180,7 +189,7 @@ describe("createMqttCommandEnqueuer", () => {
     await enqueue({ kind: "light", objectId: "inels_47742", brightness: 50 });
 
     expect(added).toEqual([
-      [GatewayJobName.SetBrightness, { deviceId: "47742", brightness: 50 }, { priority: JobPriority.Command }],
+      [GatewayJobName.SetBrightness, { deviceId: "47742", brightness: 50 }, commandJobOptions],
     ]);
   });
 
@@ -223,7 +232,7 @@ describe("app composition helpers", () => {
 
     await deps.forceDiscovery();
 
-    expect(added).toEqual([[GatewayJobName.ForceDiscovery, {}, { priority: JobPriority.Discovery }]]);
+    expect(added).toEqual([[GatewayJobName.ForceDiscovery, {}, discoveryJobOptions]]);
   });
 
   test("startup discovery is queued and full-state polling uses a stable scheduler", async () => {
@@ -238,12 +247,12 @@ describe("app composition helpers", () => {
       config,
     );
 
-    expect(added).toEqual([[GatewayJobName.ForceDiscovery, {}, { priority: JobPriority.Discovery }]]);
+    expect(added).toEqual([[GatewayJobName.ForceDiscovery, {}, discoveryJobOptions]]);
     expect(schedulers).toEqual([
       [
         GatewayJobName.PollFullState,
         { every: config.poll.fullStateIntervalMs },
-        { name: GatewayJobName.PollFullState, data: {}, opts: { priority: JobPriority.Poll } },
+        { name: GatewayJobName.PollFullState, data: {}, opts: pollJobOptions },
       ],
     ]);
   });

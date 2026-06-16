@@ -22,17 +22,6 @@ export const entityObjectId = (id: string): string => `inels_${id}`;
 export const classifyGatewayDevice = ({ id, detail, state }: ClassifyGatewayDeviceInput): DiscoveredEntity | undefined => {
   const actions = detail["actions info"] ?? {};
 
-  if (hasPrimaryAction(detail, "on") && actions.on?.type === "bool" && typeof state.on === "boolean") {
-    return {
-      id,
-      kind: "switch",
-      name: deviceName(id, detail),
-      productType: productType(detail),
-      rf003Type: rf003Type(detail),
-      objectId: entityObjectId(id),
-    };
-  }
-
   const brightness = actions.brightness;
   const stateBrightness = state.brightness;
   if (
@@ -53,6 +42,17 @@ export const classifyGatewayDevice = ({ id, detail, state }: ClassifyGatewayDevi
         max: brightness.max ?? 100,
         step: brightness.step ?? 1,
       },
+    };
+  }
+
+  if (hasPrimaryAction(detail, "on") && actions.on?.type === "bool" && typeof state.on === "boolean") {
+    return {
+      id,
+      kind: "switch",
+      name: deviceName(id, detail),
+      productType: productType(detail),
+      rf003Type: rf003Type(detail),
+      objectId: entityObjectId(id),
     };
   }
 
