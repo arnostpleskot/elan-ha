@@ -7,7 +7,7 @@
 ## Features
 
 - Discovers supported devices from the RF-003 gateway
-- Publishes Home Assistant MQTT Discovery entities for switches and dimmable lights
+- Publishes Home Assistant MQTT Discovery entities for switches, on/off lights, dimmable lights, and fans
 - Mirrors RF-003 state to MQTT state topics
 - Accepts MQTT commands and writes them back to RF-003
 - Serializes all RF-003 access through a BullMQ worker with concurrency `1`
@@ -45,10 +45,12 @@ This avoids RF gateway overload, cookie/session races, and overlapping RF transm
 
 ## Supported Entities
 
-| RF-003 capability | Home Assistant entity | MQTT payload |
+| RF-003 capability and type | Home Assistant entity | MQTT payload |
 | --- | --- | --- |
-| Boolean `on` state/action | Switch | `ON` / `OFF` |
-| Integer `brightness` state/action | Dimmable light | JSON state with HA brightness scale `0-255` |
+| Boolean `on` state/action with RF-003 type `light` or `lamp` | On/off light | `ON` / `OFF` |
+| Boolean `on` state/action with RF-003 type `ventilation` | Fan | `ON` / `OFF` |
+| Boolean `on` state/action with unknown or missing RF-003 type | Switch | `ON` / `OFF` |
+| Integer `brightness` state/action with RF-003 type `dimmed light`, `light`, `lamp`, unknown, or missing | Dimmable light | JSON state with HA brightness scale `0-255` |
 
 Unsupported RF-003 devices are ignored until support is implemented.
 
@@ -155,10 +157,13 @@ Examples with the default topic settings:
 ```text
 homeassistant/switch/<object_id>/config
 homeassistant/light/<object_id>/config
+homeassistant/fan/<object_id>/config
 inels/switch/<object_id>/state
 inels/switch/<object_id>/set
 inels/light/<object_id>/state
 inels/light/<object_id>/set
+inels/fan/<object_id>/state
+inels/fan/<object_id>/set
 inels/status
 ```
 
