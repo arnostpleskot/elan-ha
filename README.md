@@ -11,7 +11,7 @@
 - Mirrors RF-003 state to MQTT state topics
 - Accepts MQTT commands and writes them back to RF-003
 - Serializes all RF-003 access through a BullMQ worker with concurrency `1`
-- Stores discovered device registry and bridge metadata in Valkey
+- Stores runtime/cache device registry and bridge metadata in Valkey
 - Provides operational HTTP endpoints for health, readiness, devices, and forced discovery
 - Runs locally with Bun or in Docker Compose with Valkey
 
@@ -81,16 +81,10 @@ Unsupported RF-003 devices are ignored until support is implemented.
    MQTT_BASE_TOPIC=inels
    ```
 
-3. Start the production-like runtime:
+3. Start the default runtime:
 
    ```bash
    docker compose up --build
-   ```
-
-   For local development with ephemeral Valkey storage, use:
-
-   ```bash
-   docker compose -f docker-compose.dev.yml up --build
    ```
 
 4. Check the bridge:
@@ -129,11 +123,11 @@ Configuration is read from environment variables. Required deployment-specific v
 
 ## Docker Runtime
 
-The default `docker-compose.yml` is production-like:
+The default `docker-compose.yml` runs the app and an ephemeral Valkey service:
 
 - app container built from the hardened multi-stage `Dockerfile`
-- Valkey service with append-only persistence enabled
-- named `valkey-data` volume for registry, queue metadata, and cached bridge metadata
+- Valkey service with RDB snapshots and append-only persistence disabled
+- no Valkey data volume; RF-003 discovery rebuilds the registry after restart
 - `restart: unless-stopped` for app and Valkey
 
 Start it with:
@@ -142,13 +136,13 @@ Start it with:
 docker compose up --build
 ```
 
-For development, use `docker-compose.dev.yml`:
+Stop it with:
 
 ```bash
-docker compose -f docker-compose.dev.yml up --build
+docker compose down
 ```
 
-The development Compose file uses ephemeral Valkey storage. If Valkey is recreated, the bridge queues forced discovery on startup and rebuilds the device registry from RF-003. Home Assistant remapping should not be required as long as RF-003 device IDs and MQTT Discovery identifiers remain stable, but discovery and state updates may be delayed until RF-003 rediscovery succeeds.
+Valkey stores runtime/cache registry, queue metadata, and bridge metadata. RF-003 remains the durable source of truth for device inventory and state. If Valkey is recreated, the bridge queues forced discovery on startup and rebuilds the device registry from RF-003. Home Assistant remapping should not be required as long as RF-003 device IDs and MQTT Discovery identifiers remain stable, but discovery and state updates may be delayed until RF-003 rediscovery succeeds.
 
 Mosquitto or another MQTT broker, and Home Assistant, are intentionally external to this repository. Point `MQTT_URL` at the broker you want the bridge to use.
 
