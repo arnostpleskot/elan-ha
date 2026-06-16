@@ -102,7 +102,12 @@ const parseDeviceStateData = (data: unknown): DeviceStateData => {
 };
 
 const handleDiscovery = async (deps: GatewayWorkerDeps, logger: Logger): Promise<void> => {
-  const previousEntities = await deps.loadRegistry();
+  let previousEntities: DiscoveredEntity[] = [];
+  try {
+    previousEntities = await deps.loadRegistry();
+  } catch (error) {
+    logger.warn({ err: error }, "previous registry unavailable; skipping stale cleanup");
+  }
   const entities: DiscoveredEntity[] = [];
 
   for (const deviceId of await deps.operations.listDeviceIds()) {
@@ -160,13 +165,20 @@ const publishReadBackState = async (deviceId: string, deps: GatewayWorkerDeps): 
 };
 
 const handlePollFullState = async (deps: GatewayWorkerDeps): Promise<void> => {
-  for (const entity of await deps.loadRegistry()) {
+  const entities = await deps.loadRegistry();
+
+  await deps.updateLastPoll();
+
+  if (entities.length === 0) {
+    return;
+  }
+
+  for (const entity of entities) {
     const state = await deps.operations.getDeviceState(entity.id);
     await deps.saveState(entity.id, state);
     await deps.publishState(entity, state);
   }
 
-  await deps.updateLastPoll();
   await deps.updateLastSuccess();
 };
 
