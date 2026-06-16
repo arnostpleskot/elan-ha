@@ -7,11 +7,14 @@ import { GatewayError, type GatewaySession } from "./types";
 
 const makeLogger = () => {
   const calls: Array<{ level: "info" | "warn" | "error" | "debug"; obj: unknown; msg?: string }> = [];
+  const capture = (level: "info" | "warn" | "error" | "debug", obj: unknown, msg?: string) => {
+    calls.push(msg === undefined ? { level, obj } : { level, obj, msg });
+  };
   const child = {
-    info: (obj: unknown, msg?: string) => calls.push({ level: "info", obj, msg }),
-    warn: (obj: unknown, msg?: string) => calls.push({ level: "warn", obj, msg }),
-    error: (obj: unknown, msg?: string) => calls.push({ level: "error", obj, msg }),
-    debug: (obj: unknown, msg?: string) => calls.push({ level: "debug", obj, msg }),
+    info: (obj: unknown, msg?: string) => capture("info", obj, msg),
+    warn: (obj: unknown, msg?: string) => capture("warn", obj, msg),
+    error: (obj: unknown, msg?: string) => capture("error", obj, msg),
+    debug: (obj: unknown, msg?: string) => capture("debug", obj, msg),
   };
   return { calls, logger: { child: () => child } as unknown as Logger };
 };
