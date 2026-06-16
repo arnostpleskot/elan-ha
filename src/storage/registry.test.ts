@@ -69,6 +69,70 @@ describe("device registry storage", () => {
     expect(await loadDeviceRegistry(redis, logger)).toEqual([fanEntity, onOffLightEntity]);
   });
 
+  test("normalizes legacy switch entities while preserving old objectId", async () => {
+    const legacy = {
+      id: "09354",
+      kind: "switch" as const,
+      name: "Strop - Chodba",
+      productType: "RFSA-66M",
+      rf003Type: "light",
+      objectId: "inels_09354",
+    };
+    const redis = { get: async () => JSON.stringify([legacy]) };
+    const { logger, warnings } = makeLogger();
+
+    expect(await loadDeviceRegistry(redis, logger)).toEqual([
+      {
+        ...legacy,
+        sourceId: "09354",
+        sourceAddress: 9354,
+        capability: "on_off",
+      },
+    ]);
+    expect(warnings).toEqual([]);
+  });
+
+  test("normalizes legacy brightness light entities", async () => {
+    const legacy = {
+      id: "47742",
+      kind: "light" as const,
+      capabilities: ["brightness"] as ["brightness"],
+      name: "Strop - Loznice",
+      productType: "RFDA-71B",
+      rf003Type: "dimmed light",
+      objectId: "inels_47742",
+      brightness: { min: 0, max: 100, step: 10 },
+    };
+    const redis = { get: async () => JSON.stringify([legacy]) };
+    const { logger, warnings } = makeLogger();
+
+    expect(await loadDeviceRegistry(redis, logger)).toEqual([
+      {
+        ...legacy,
+        sourceId: "47742",
+        sourceAddress: 47742,
+        capability: "brightness",
+      },
+    ]);
+    expect(warnings).toEqual([]);
+  });
+
+  test("returns an empty registry and logs warn when legacy sourceAddress cannot be parsed", async () => {
+    const legacy = {
+      id: "relay-a",
+      kind: "switch",
+      name: "Legacy Relay",
+      productType: "RFSA-66M",
+      rf003Type: "unknown",
+      objectId: "inels_relay_a",
+    };
+    const redis = { get: async () => JSON.stringify([legacy]) };
+    const { logger, warnings } = makeLogger();
+
+    expect(await loadDeviceRegistry(redis, logger)).toEqual([]);
+    expect(warnings).toHaveLength(1);
+  });
+
   test("returns an empty registry when the key is absent", async () => {
     const redis = { get: async () => null };
     const { logger, warnings } = makeLogger();

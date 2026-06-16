@@ -204,6 +204,30 @@ describe("gateway worker", () => {
     expect(cleared).toEqual([previousSwitch]);
   });
 
+  test("discovery clears normalized legacy entity when source address changes domain", async () => {
+    const legacySwitch: DiscoveredEntity = { ...switchEntity, objectId: "inels_09354" };
+    const cleared: DiscoveredEntity[] = [];
+    const deps = makeDeps({
+      loadRegistry: async () => [legacySwitch],
+      operations: {
+        ...makeDeps().operations,
+        getDeviceDetail: async () => ({
+          "device info": { label: "Hall Fan", "product type": "RFSA-66M", type: "ventilation", address: 9354 },
+          "actions info": { on: { type: "bool" } },
+          "primary actions": ["on"],
+        }),
+      },
+      clearDiscovery: async (entity: DiscoveredEntity) => {
+        cleared.push(entity);
+      },
+    });
+    createGatewayWorker({ host: "localhost", port: 6379 }, logger, deps);
+
+    await capturedProcessor?.({ name: GatewayJobName.PublishDiscovery, data: {} });
+
+    expect(cleared).toEqual([legacySwitch]);
+  });
+
   test("discovery does not clear unchanged entities", async () => {
     const cleared: DiscoveredEntity[] = [];
     const deps = makeDeps({
