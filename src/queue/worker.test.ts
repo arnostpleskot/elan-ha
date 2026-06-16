@@ -362,6 +362,85 @@ describe("gateway worker", () => {
     expect(getDeviceStateCalled).toBe(false);
     expect(updateLastSuccessCalled).toBe(false);
   });
+
+  test("poll full state skips silently and does not mark success when load registry throws", async () => {
+    let getDeviceStateCalled = false;
+    let updateLastSuccessCalled = false;
+    const deps = makeDeps({
+      loadRegistry: async () => {
+        throw new Error("corrupt registry");
+      },
+      operations: {
+        ...makeDeps().operations,
+        getDeviceState: async () => {
+          getDeviceStateCalled = true;
+          return { on: true };
+        },
+      },
+      updateLastSuccess: async () => {
+        updateLastSuccessCalled = true;
+      },
+    });
+    createGatewayWorker({ host: "localhost", port: 6379 }, logger, deps);
+
+    await capturedProcessor?.({ name: GatewayJobName.PollFullState, data: {} });
+
+    expect(getDeviceStateCalled).toBe(false);
+    expect(updateLastSuccessCalled).toBe(false);
+  });
+
+  test("poll device state throws not-found when load registry throws", async () => {
+    let getDeviceStateCalled = false;
+    let updateLastSuccessCalled = false;
+    const deps = makeDeps({
+      loadRegistry: async () => {
+        throw new Error("corrupt registry");
+      },
+      operations: {
+        ...makeDeps().operations,
+        getDeviceState: async () => {
+          getDeviceStateCalled = true;
+          return { on: true };
+        },
+      },
+      updateLastSuccess: async () => {
+        updateLastSuccessCalled = true;
+      },
+    });
+    createGatewayWorker({ host: "localhost", port: 6379 }, logger, deps);
+
+    await expect(
+      capturedProcessor?.({ name: GatewayJobName.PollDeviceState, data: { deviceId: "09354" } }),
+    ).rejects.toThrow("Device 09354 not found in registry");
+    expect(getDeviceStateCalled).toBe(false);
+    expect(updateLastSuccessCalled).toBe(false);
+  });
+
+  test("set output runs gateway command then throws on read-back when load registry throws", async () => {
+    let setSwitchCalled = false;
+    let updateLastSuccessCalled = false;
+    const deps = makeDeps({
+      loadRegistry: async () => {
+        throw new Error("corrupt registry");
+      },
+      operations: {
+        ...makeDeps().operations,
+        setSwitch: async () => {
+          setSwitchCalled = true;
+        },
+      },
+      updateLastSuccess: async () => {
+        updateLastSuccessCalled = true;
+      },
+    });
+    createGatewayWorker({ host: "localhost", port: 6379 }, logger, deps);
+
+    await expect(
+      capturedProcessor?.({ name: GatewayJobName.SetOutput, data: { deviceId: "09354", state: "ON" } }),
+    ).rejects.toThrow("Device 09354 not found in registry");
+    expect(setSwitchCalled).toBe(true);
+    expect(updateLastSuccessCalled).toBe(false);
+  });
 });
 
 function makeDeps(overrides: Partial<GatewayWorkerDeps> = {}): GatewayWorkerDeps {

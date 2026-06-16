@@ -113,6 +113,8 @@ Device modeling should make RF-003-discovered entity details explicit:
 
 Device configuration is stored in Valkey/Redis. Runtime state must still come from RF-003 reads or confirmed writes. Cached state can speed startup but must not override fresh RF-003 state.
 
+A corrupt or unavailable cached registry must not block fresh discovery or lock out other RF-003 jobs. The worker treats a failing registry read as an empty registry and logs a warning. Discovery proceeds against RF-003 and writes a fresh authoritative registry; stale-entity cleanup is skipped because the previous topic list is unavailable. Other handlers — `poll.full_state`, `poll.device_state`, and command read-back — degrade gracefully: the full poll skips silently without marking RF-003 readiness, and per-device handlers throw a "not found" error so BullMQ retries after discovery rebuilds the registry.
+
 ## MQTT Contract
 
 MQTT Discovery is the only Home Assistant integration surface.
