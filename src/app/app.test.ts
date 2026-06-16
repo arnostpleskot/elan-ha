@@ -137,6 +137,28 @@ describe("createGatewayWorkerDeps", () => {
     expect(sets).toEqual([]);
   });
 
+  test("records gateway success when last-success Valkey compare rejects", async () => {
+    const gatewaySuccessTracker = createGatewaySuccessTracker();
+    const valkey = {
+      get: async () => {
+        throw new Error("ECONNREFUSED");
+      },
+      set: async () => undefined,
+    };
+    const deps = createGatewayWorkerDeps({
+      config,
+      valkey,
+      mqttClient: { publish: () => undefined },
+      operations,
+      logger,
+      gatewaySuccessTracker,
+    });
+
+    await expect(deps.updateLastSuccess()).rejects.toThrow("ECONNREFUSED");
+
+    expect(gatewaySuccessTracker.getLastSuccessAtMs()).toBeNumber();
+  });
+
   test("publishes retained discovery and read-back state payloads", async () => {
     const publishes: Array<[string, string] | [string, string, { retain?: boolean }]> = [];
     const mqttClient = {

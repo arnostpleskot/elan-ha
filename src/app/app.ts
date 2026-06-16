@@ -309,8 +309,8 @@ export const createGatewayWorkerDeps = ({
     },
     updateLastSuccess: async () => {
       const timestampMs = Date.now();
-      await setJsonIfChanged(valkey, lastSuccessKey(), new Date(timestampMs).toISOString());
       gatewaySuccessTracker?.recordSuccess(timestampMs);
+      await setJsonIfChanged(valkey, lastSuccessKey(), new Date(timestampMs).toISOString());
     },
   };
 };
