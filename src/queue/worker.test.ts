@@ -320,6 +320,29 @@ describe("gateway worker", () => {
     expect(updateLastSuccessCalled).toBe(false);
   });
 
+  test("set output still sends the gateway command when registry is empty and read-back has no entity", async () => {
+    let setSwitchCalled = false;
+    let updateLastSuccessCalled = false;
+    const deps = makeDeps({
+      loadRegistry: async () => [],
+      operations: {
+        ...makeDeps().operations,
+        setSwitch: async () => {
+          setSwitchCalled = true;
+        },
+      },
+      updateLastSuccess: async () => {
+        updateLastSuccessCalled = true;
+      },
+    });
+    createGatewayWorker({ host: "localhost", port: 6379 }, logger, deps);
+
+    await expect(
+      capturedProcessor?.({ name: GatewayJobName.SetOutput, data: { deviceId: "09354", state: "ON" } }),
+    ).rejects.toThrow("Device 09354 not found in registry");
+    expect(setSwitchCalled).toBe(true);
+    expect(updateLastSuccessCalled).toBe(false);
+  });
 });
 
 function makeDeps(overrides: Partial<GatewayWorkerDeps> = {}): GatewayWorkerDeps {

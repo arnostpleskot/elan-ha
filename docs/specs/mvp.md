@@ -115,6 +115,8 @@ Device configuration is stored in Valkey/Redis. Runtime state must still come fr
 
 A corrupt or unavailable cached registry must not block fresh discovery or lock out other RF-003 jobs. The registry loader (`loadDeviceRegistry`) treats any failure — Valkey rejection, JSON parse error, or schema validation error — as an empty registry and logs a warning; it never rejects. All call sites (queue worker handlers, HTTP `GET /devices`, MQTT command enqueuer) inherit this contract uniformly. Discovery proceeds against RF-003 and writes a fresh authoritative registry; stale-entity cleanup is skipped because the previous topic list is unavailable. `poll.full_state` skips silently without marking RF-003 readiness, per-device handlers throw a "not found" error so BullMQ retries after discovery rebuilds the registry, the HTTP devices endpoint returns `[]`, and the MQTT command enqueuer drops the command with a warn log.
 
+As a consequence, the `GET /devices` response does not distinguish "no devices configured yet" from "cached registry corrupt" — both surface as HTTP 200 with `[]`. Cache health is observable only through the warn-level log line emitted by `loadDeviceRegistry`; readiness gating remains the source of truth for whether RF-003 has been polled successfully.
+
 ## MQTT Contract
 
 MQTT Discovery is the only Home Assistant integration surface.

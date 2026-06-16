@@ -13,6 +13,9 @@ export type RegistryLogger = {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
+const truncate = (value: string, max: number): string =>
+  value.length <= max ? value : `${value.slice(0, max)}… (${value.length - max} more chars)`;
+
 const hasStringEntityFields = (value: Record<string, unknown>): boolean =>
   typeof value.id === "string" &&
   typeof value.name === "string" &&
@@ -74,7 +77,7 @@ export const loadDeviceRegistry = async (
   }
 
   if (!Array.isArray(parsed) || !parsed.every(isDiscoveredEntity)) {
-    logger.warn({ raw }, "device registry schema invalid; treating as empty");
+    logger.warn({ raw: truncate(raw, 200) }, "device registry schema invalid; treating as empty");
     return [];
   }
 

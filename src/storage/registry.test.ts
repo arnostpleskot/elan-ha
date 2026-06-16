@@ -82,6 +82,19 @@ describe("device registry storage", () => {
     expect(warnings).toHaveLength(1);
   });
 
+  test("truncates the raw payload in the schema-invalid warn log", async () => {
+    const oversized = JSON.stringify(Array.from({ length: 500 }, () => ({ ...entity, id: 9354 })));
+    expect(oversized.length).toBeGreaterThan(1000);
+    const redis = { get: async () => oversized };
+    const { logger, warnings } = makeLogger();
+
+    expect(await loadDeviceRegistry(redis, logger)).toEqual([]);
+    expect(warnings).toHaveLength(1);
+    const rawField = (warnings[0]?.obj as { raw?: string }).raw;
+    expect(typeof rawField).toBe("string");
+    expect((rawField as string).length).toBeLessThanOrEqual(256);
+  });
+
   test("returns an empty registry and logs warn when valkey get rejects", async () => {
     const redis = {
       get: async () => {
