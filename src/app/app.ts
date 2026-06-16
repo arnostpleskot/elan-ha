@@ -87,6 +87,22 @@ type AppLogger = {
   error: (obj: unknown, msg: string) => void;
 };
 
+export type GatewaySuccessTracker = {
+  getLastSuccessAtMs: () => number | undefined;
+  recordSuccess: (timestampMs?: number) => void;
+};
+
+export const createGatewaySuccessTracker = (): GatewaySuccessTracker => {
+  let lastGatewaySuccessAtMs: number | undefined;
+
+  return {
+    getLastSuccessAtMs: () => lastGatewaySuccessAtMs,
+    recordSuccess: (timestampMs = Date.now()) => {
+      lastGatewaySuccessAtMs = timestampMs;
+    },
+  };
+};
+
 export const isRecentIsoTimestamp = (value: string | null, nowMs: number, maxAgeMs: number): boolean => {
   if (value === null) {
     return false;
@@ -122,20 +138,24 @@ export const createAppHttpServerDeps = ({
   mqttClient,
   valkey,
   queue,
+  gatewaySuccessTracker = createGatewaySuccessTracker(),
 }: {
   config: AppConfig;
   mqttClient: AppHttpMqttClient;
   valkey: AppHttpValkey;
   queue: GatewayCommandQueue;
+  gatewaySuccessTracker?: GatewaySuccessTracker;
 }) => ({
   getReadiness: () =>
-    checkReadiness(mqttClient, valkey, async () =>
-      isRecentIsoTimestamp(
-        await valkey.get(lastSuccessKey()),
-        Date.now(),
-        Math.max(config.poll.fullStateIntervalMs * 2, 60_000),
-      ),
-    ),
+    checkReadiness(mqttClient, valkey, async () => {
+      const lastSuccessAtMs = gatewaySuccessTracker.getLastSuccessAtMs();
+      return lastSuccessAtMs !== undefined &&
+        isRecentIsoTimestamp(
+          new Date(lastSuccessAtMs).toISOString(),
+          Date.now(),
+          Math.max(config.poll.fullStateIntervalMs * 2, 60_000),
+        );
+    }),
   forceDiscovery: async () => {
     await queue.add(GatewayJobName.ForceDiscovery, {}, discoveryJobOptions());
   },
@@ -211,11 +231,13 @@ export const createGatewayWorkerDeps = ({
   valkey,
   mqttClient,
   operations,
+  gatewaySuccessTracker,
 }: {
   config: AppConfig;
   valkey: WorkerDepsValkey;
   mqttClient: WorkerDepsMqttClient;
   operations: GatewayOperations;
+  gatewaySuccessTracker?: GatewaySuccessTracker;
 }): GatewayWorkerDeps => ({
   operations,
   loadRegistry: () => loadDeviceRegistry(valkey),
@@ -243,7 +265,9 @@ export const createGatewayWorkerDeps = ({
     await valkey.set(lastPollKey(), new Date().toISOString());
   },
   updateLastSuccess: async () => {
-    await valkey.set(lastSuccessKey(), new Date().toISOString());
+    const timestampMs = Date.now();
+    await valkey.set(lastSuccessKey(), new Date(timestampMs).toISOString());
+    gatewaySuccessTracker?.recordSuccess(timestampMs);
   },
 });
 
@@ -260,12 +284,19 @@ export const createApp = (config: AppConfig, logger: Logger): App => ({
     const session = createGatewaySession(config.rf003, logger);
     const client = createGatewayClient(config.rf003, session, logger);
     const operations = createGatewayOperations(client);
-    createGatewayWorker(connection, logger, createGatewayWorkerDeps({ config, valkey, mqttClient, operations }));
+    const gatewaySuccessTracker = createGatewaySuccessTracker();
+    createGatewayWorker(
+      connection,
+      logger,
+      createGatewayWorkerDeps({ config, valkey, mqttClient, operations, gatewaySuccessTracker }),
+    );
     const appLogger = logger.child({ module: "app" });
     void scheduleStartupGatewayJobs(gatewayQueue, config, appLogger);
 
     const httpLogger = logger.child({ module: "http" });
-    const server = createHttpServer(createAppHttpServerDeps({ config, mqttClient, valkey, queue: gatewayQueue }));
+    const server = createHttpServer(
+      createAppHttpServerDeps({ config, mqttClient, valkey, queue: gatewayQueue, gatewaySuccessTracker }),
+    );
 
     server.listen({
       hostname: config.http.host,

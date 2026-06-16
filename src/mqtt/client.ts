@@ -89,7 +89,9 @@ export const createMqttClient = (
   const mqttLogger = logger.child({ module: "mqtt" });
   const commandTopics = [switchCommandTopic(config.baseTopic, "+"), lightCommandTopic(config.baseTopic, "+")];
 
-  const connectOptions: IClientOptions = {};
+  const connectOptions: IClientOptions = {
+    will: { topic: availabilityTopic(config.baseTopic), payload: "offline", retain: true, qos: 0 },
+  };
   if (config.username !== undefined) {
     connectOptions.username = config.username;
   }

@@ -4,9 +4,9 @@ import type { AppConfig } from "../config/env";
 import type { DiscoveredEntity } from "../devices/types";
 import type { GatewayOperations } from "../gateway/operations";
 import { GatewayJobName, JobPriority } from "../queue/jobs";
-import { lastSuccessKey } from "../storage/keys";
 import {
   createAppHttpServerDeps,
+  createGatewaySuccessTracker,
   createGatewayWorkerDeps,
   createMqttCommandEnqueuer,
   enqueueStartupGatewayJobs,
@@ -286,23 +286,41 @@ describe("app composition helpers", () => {
     await expect(deps.getDevices()).resolves.toEqual([switchEntity]);
   });
 
-  test("readiness marks RF-003 ready when worker success metadata exists", async () => {
-    const keys: string[] = [];
+  test("readiness ignores persisted worker success metadata after app start", async () => {
     const deps = createAppHttpServerDeps({
       config,
       mqttClient: { connected: true },
       valkey: {
-        get: async (key) => {
-          keys.push(key);
-          return new Date().toISOString();
-        },
+        get: async () => new Date().toISOString(),
         ping: async () => "PONG",
       },
       queue: { add: async () => undefined },
+      gatewaySuccessTracker: createGatewaySuccessTracker(),
     });
 
-    await expect(deps.getReadiness()).resolves.toEqual({ ready: true, mqtt: true, valkey: true, rf003: true });
-    expect(keys).toContain(lastSuccessKey());
+    await expect(deps.getReadiness()).resolves.toEqual({ ready: false, mqtt: true, valkey: true, rf003: false });
+  });
+
+  test("readiness marks RF-003 ready after current-process worker success", async () => {
+    const gatewaySuccessTracker = createGatewaySuccessTracker();
+    const workerDeps = createGatewayWorkerDeps({
+      config,
+      valkey: { get: async () => null, set: async () => undefined },
+      mqttClient: { publish: () => undefined },
+      operations,
+      gatewaySuccessTracker,
+    });
+    const httpDeps = createAppHttpServerDeps({
+      config,
+      mqttClient: { connected: true },
+      valkey: { get: async () => null, ping: async () => "PONG" },
+      queue: { add: async () => undefined },
+      gatewaySuccessTracker,
+    });
+
+    await workerDeps.updateLastSuccess();
+
+    await expect(httpDeps.getReadiness()).resolves.toEqual({ ready: true, mqtt: true, valkey: true, rf003: true });
   });
 
   test("readiness marks RF-003 down when worker success metadata is missing", async () => {

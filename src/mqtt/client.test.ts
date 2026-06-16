@@ -61,6 +61,14 @@ describe("createMqttClient", () => {
     expect(publishes).toContainEqual(["inels/status", "online", { retain: true }]);
   });
 
+  test("configures a retained offline Last Will on the normalized availability topic", () => {
+    createMqttClient({ ...config, baseTopic: "/inels/" }, logger);
+
+    expect(mqttConnect).toHaveBeenCalledWith("mqtt://localhost", {
+      will: { topic: "inels/status", payload: "offline", retain: true, qos: 0 },
+    });
+  });
+
   test("normalizes base topic boundaries for subscriptions and dispatch", () => {
     const commands: unknown[] = [];
     createMqttClient({ ...config, baseTopic: "/inels/" }, logger, async (command) => {
