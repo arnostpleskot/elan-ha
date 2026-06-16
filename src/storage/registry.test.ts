@@ -62,6 +62,37 @@ describe("device registry storage", () => {
     expect(await loadDeviceRegistry(redis, logger)).toEqual([entity]);
   });
 
+  test("skips saving the registry when serialized value is unchanged", async () => {
+    const serialized = JSON.stringify([entity]);
+    const sets: string[] = [];
+    const redis = {
+      get: async () => serialized,
+      set: async (_key: string, value: string) => {
+        sets.push(value);
+        return "OK";
+      },
+    };
+
+    await saveDeviceRegistry(redis, [entity]);
+
+    expect(sets).toEqual([]);
+  });
+
+  test("writes the registry when serialized value changed", async () => {
+    const sets: string[] = [];
+    const redis = {
+      get: async () => null,
+      set: async (_key: string, value: string) => {
+        sets.push(value);
+        return "OK";
+      },
+    };
+
+    await saveDeviceRegistry(redis, [entity]);
+
+    expect(sets).toEqual([JSON.stringify([entity])]);
+  });
+
   test("loads fan and on/off light entities", async () => {
     const redis = { get: async () => JSON.stringify([fanEntity, onOffLightEntity]) };
     const { logger } = makeLogger();

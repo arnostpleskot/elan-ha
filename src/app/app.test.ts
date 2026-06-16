@@ -90,16 +90,19 @@ const pollJobOptions = { priority: JobPriority.Poll, attempts: 3, backoff: { typ
 
 describe("createGatewayWorkerDeps", () => {
   test("persists registry, states, and timestamps in Valkey", async () => {
+    const values = new Map<string, string>([["inels:devices", JSON.stringify([switchEntity])]]);
     const sets: Array<[string, string]> = [];
     const valkey = {
-      get: async () => JSON.stringify([switchEntity]),
+      get: async (key: string) => values.get(key) ?? null,
       set: async (key: string, value: string) => {
         sets.push([key, value]);
+        values.set(key, value);
       },
     };
     const deps = createGatewayWorkerDeps({ config, valkey, mqttClient: { publish: () => undefined }, operations, logger });
 
     await expect(deps.loadRegistry()).resolves.toEqual([switchEntity]);
+    values.delete("inels:devices");
     await deps.saveRegistry([switchEntity]);
     await deps.saveState("09354", { on: true });
     await deps.updateLastPoll();
@@ -108,9 +111,30 @@ describe("createGatewayWorkerDeps", () => {
     expect(sets[0]).toEqual(["inels:devices", JSON.stringify([switchEntity])]);
     expect(sets[1]).toEqual(["inels:state:09354", JSON.stringify({ on: true })]);
     expect(sets[2]?.[0]).toBe("inels:meta:last_poll");
-    expect(Number.isNaN(Date.parse(sets[2]?.[1] ?? ""))).toBe(false);
+    expect(Number.isNaN(Date.parse(JSON.parse(sets[2]?.[1] ?? "null")))).toBe(false);
     expect(sets[3]?.[0]).toBe("inels:meta:last_success");
-    expect(Number.isNaN(Date.parse(sets[3]?.[1] ?? ""))).toBe(false);
+    expect(Number.isNaN(Date.parse(JSON.parse(sets[3]?.[1] ?? "null")))).toBe(false);
+  });
+
+  test("skips unchanged registry and state writes in Valkey", async () => {
+    const values = new Map<string, string>([
+      ["inels:devices", JSON.stringify([switchEntity])],
+      ["inels:state:09354", JSON.stringify({ on: true })],
+    ]);
+    const sets: Array<[string, string]> = [];
+    const valkey = {
+      get: async (key: string) => values.get(key) ?? null,
+      set: async (key: string, value: string) => {
+        sets.push([key, value]);
+        values.set(key, value);
+      },
+    };
+    const deps = createGatewayWorkerDeps({ config, valkey, mqttClient: { publish: () => undefined }, operations, logger });
+
+    await deps.saveRegistry([switchEntity]);
+    await deps.saveState("09354", { on: true });
+
+    expect(sets).toEqual([]);
   });
 
   test("publishes retained discovery and read-back state payloads", async () => {

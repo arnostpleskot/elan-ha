@@ -10,6 +10,14 @@ export type RegistryLogger = {
   warn: (obj: object, msg: string) => void;
 };
 
+export const setJsonIfChanged = async (redis: RegistryRedis, key: string, value: unknown): Promise<void> => {
+  const serialized = JSON.stringify(value);
+  if ((await redis.get(key)) === serialized) {
+    return;
+  }
+  await redis.set(key, serialized);
+};
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -183,5 +191,5 @@ export const saveDeviceRegistry = async (
   redis: RegistryRedis,
   entities: DiscoveredEntity[],
 ): Promise<void> => {
-  await redis.set(deviceRegistryKey(), JSON.stringify(entities));
+  await setJsonIfChanged(redis, deviceRegistryKey(), entities);
 };

@@ -21,7 +21,7 @@ import { GatewayJobName, JobPriority } from "../queue/jobs";
 import { createGatewayQueue } from "../queue/scheduler";
 import { createGatewayWorker, type GatewayWorkerDeps } from "../queue/worker";
 import { lastPollKey, lastSuccessKey, stateKey } from "../storage/keys";
-import { loadDeviceRegistry, saveDeviceRegistry } from "../storage/registry";
+import { loadDeviceRegistry, saveDeviceRegistry, setJsonIfChanged } from "../storage/registry";
 import { createValkeyClient, parseValkeyConnectionOptions } from "../storage/valkey";
 import { createHttpServer } from "../http/server";
 
@@ -283,7 +283,7 @@ export const createGatewayWorkerDeps = ({
     loadRegistry: () => loadDeviceRegistry(valkey, registryLogger),
     saveRegistry: (entities) => saveDeviceRegistry(valkey, entities),
     saveState: async (deviceId, state) => {
-      await valkey.set(stateKey(deviceId), JSON.stringify(state));
+      await setJsonIfChanged(valkey, stateKey(deviceId), state);
     },
     clearDiscovery: async (entity) => {
       mqttClient.publish(discoveryTopic(config, entity), "", { retain: true });
@@ -305,11 +305,11 @@ export const createGatewayWorkerDeps = ({
       }
     },
     updateLastPoll: async () => {
-      await valkey.set(lastPollKey(), new Date().toISOString());
+      await setJsonIfChanged(valkey, lastPollKey(), new Date().toISOString());
     },
     updateLastSuccess: async () => {
       const timestampMs = Date.now();
-      await valkey.set(lastSuccessKey(), new Date(timestampMs).toISOString());
+      await setJsonIfChanged(valkey, lastSuccessKey(), new Date(timestampMs).toISOString());
       gatewaySuccessTracker?.recordSuccess(timestampMs);
     },
   };
