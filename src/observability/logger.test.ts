@@ -8,15 +8,19 @@ describe("logger configuration", () => {
       "rf003.password",
       "mqtt.password",
       "password",
-      "**.password",
-      "**.key",
-      "**.cookie",
-      "**.authorization",
       "*.password",
       "*.*.password",
       "*.*.key",
       "*.*.cookie",
       "*.*.authorization",
+      "*.*.*.password",
+      "*.*.*.key",
+      "*.*.*.cookie",
+      "*.*.*.authorization",
+      "*.*.*.*.password",
+      "*.*.*.*.key",
+      "*.*.*.*.cookie",
+      "*.*.*.*.authorization",
       "*.headers.cookie",
       "*.headers.authorization",
       "*.body.key",
@@ -47,6 +51,16 @@ describe("logger configuration", () => {
           authorization: "deep-authorization-secret",
         },
       },
+      one: {
+        two: {
+          three: {
+            password: "three-deep-secret",
+            key: "three-deep-key",
+            cookie: "three-deep-cookie",
+            authorization: "Bearer three-deep",
+          },
+        },
+      },
     });
 
     const output = chunks.join("");
@@ -56,5 +70,9 @@ describe("logger configuration", () => {
     expect(output).not.toContain("deep-key-secret");
     expect(output).not.toContain("deep-cookie-secret");
     expect(output).not.toContain("deep-authorization-secret");
+    expect(output).not.toContain("three-deep-secret");
+    expect(output).not.toContain("three-deep-key");
+    expect(output).not.toContain("three-deep-cookie");
+    expect(output).not.toContain("Bearer three-deep");
   });
 });
