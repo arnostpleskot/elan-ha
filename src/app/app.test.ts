@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
+import type { Logger } from "pino";
 import type { AppConfig } from "../config/env";
 import type { DiscoveredEntity } from "../devices/types";
 import type { GatewayOperations } from "../gateway/operations";
-import { createGatewayWorkerDeps } from "./app";
+import { GatewayJobName, JobPriority } from "../queue/jobs";
+import { createGatewayWorkerDeps, createMqttCommandEnqueuer } from "./app";
 
 const config: AppConfig = {
   rf003: { baseUrl: "http://rf003.local", username: "user", password: "pass" },
@@ -20,6 +22,10 @@ const operations: GatewayOperations = {
   setSwitch: async () => {},
   setBrightness: async () => {},
 };
+
+const logger = {
+  child: () => ({ info: () => {}, warn: () => {}, error: () => {}, debug: () => {} }),
+} as unknown as Logger;
 
 const switchEntity: DiscoveredEntity = {
   id: "09354",
@@ -137,5 +143,50 @@ describe("createGatewayWorkerDeps", () => {
       ],
       ["inels/switch/inels_09354/state", "ON"],
     ]);
+  });
+});
+
+describe("createMqttCommandEnqueuer", () => {
+  test("resolves switch object ID and enqueues set output job", async () => {
+    const added: unknown[][] = [];
+    const enqueue = createMqttCommandEnqueuer({
+      valkey: { get: async () => JSON.stringify([switchEntity]) },
+      queue: { add: async (...args: unknown[]) => added.push(args) },
+      logger,
+    });
+
+    await enqueue({ kind: "switch", objectId: "inels_09354", state: "ON" });
+
+    expect(added).toEqual([
+      [GatewayJobName.SetOutput, { deviceId: "09354", state: "ON" }, { priority: JobPriority.Command }],
+    ]);
+  });
+
+  test("resolves light object ID and enqueues set brightness job", async () => {
+    const added: unknown[][] = [];
+    const enqueue = createMqttCommandEnqueuer({
+      valkey: { get: async () => JSON.stringify([lightEntity]) },
+      queue: { add: async (...args: unknown[]) => added.push(args) },
+      logger,
+    });
+
+    await enqueue({ kind: "light", objectId: "inels_47742", brightness: 50 });
+
+    expect(added).toEqual([
+      [GatewayJobName.SetBrightness, { deviceId: "47742", brightness: 50 }, { priority: JobPriority.Command }],
+    ]);
+  });
+
+  test("does not enqueue unknown object ID", async () => {
+    const added: unknown[][] = [];
+    const enqueue = createMqttCommandEnqueuer({
+      valkey: { get: async () => JSON.stringify([switchEntity]) },
+      queue: { add: async (...args: unknown[]) => added.push(args) },
+      logger,
+    });
+
+    await enqueue({ kind: "switch", objectId: "inels_unknown", state: "OFF" });
+
+    expect(added).toEqual([]);
   });
 });

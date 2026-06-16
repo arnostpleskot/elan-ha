@@ -4,11 +4,12 @@ import type { DiscoveredEntity } from "../devices/types";
 import { createGatewayClient } from "../gateway/client";
 import { createGatewayOperations, type GatewayOperations } from "../gateway/operations";
 import { createGatewaySession } from "../gateway/session";
-import { createMqttClient } from "../mqtt/client";
+import { createMqttClient, type EnqueueMqttCommand, type MqttCommand } from "../mqtt/client";
 import { buildDiscoveryPayload } from "../mqtt/discovery";
 import { buildMqttStatePayload } from "../mqtt/state";
 import { lightDiscoveryTopic, lightStateTopic, switchDiscoveryTopic, switchStateTopic } from "../mqtt/topics";
 import { checkReadiness } from "../observability/readiness";
+import { GatewayJobName, JobPriority } from "../queue/jobs";
 import { createGatewayQueue } from "../queue/scheduler";
 import { createGatewayWorker, type GatewayWorkerDeps } from "../queue/worker";
 import { lastPollKey, lastSuccessKey, stateKey } from "../storage/keys";
@@ -39,6 +40,49 @@ type WorkerDepsValkey = {
 
 type WorkerDepsMqttClient = {
   publish: (topic: string, payload: string, opts?: { retain?: boolean }) => unknown;
+};
+
+type CommandQueue = {
+  add: (name: string, data: unknown, opts?: { priority?: number }) => Promise<unknown> | unknown;
+};
+
+type CommandValkey = {
+  get: (key: string) => Promise<string | null>;
+};
+
+export const createMqttCommandEnqueuer = ({
+  valkey,
+  queue,
+  logger,
+}: {
+  valkey: CommandValkey;
+  queue: CommandQueue;
+  logger: Logger;
+}): EnqueueMqttCommand => {
+  const appLogger = logger.child({ module: "app", component: "mqtt-command" });
+
+  return async (command: MqttCommand) => {
+    const entity = (await loadDeviceRegistry(valkey)).find((candidate) => candidate.objectId === command.objectId);
+    if (entity === undefined) {
+      appLogger.warn({ objectId: command.objectId, kind: command.kind }, "mqtt command object id not found");
+      return;
+    }
+
+    if (command.kind === "switch") {
+      await queue.add(
+        GatewayJobName.SetOutput,
+        { deviceId: entity.id, state: command.state },
+        { priority: JobPriority.Command },
+      );
+      return;
+    }
+
+    await queue.add(
+      GatewayJobName.SetBrightness,
+      { deviceId: entity.id, brightness: command.brightness },
+      { priority: JobPriority.Command },
+    );
+  };
 };
 
 export const createGatewayWorkerDeps = ({
@@ -85,11 +129,15 @@ export const createApp = (config: AppConfig, logger: Logger): App => ({
   start: () => {
     const valkey = createValkeyClient(config.valkey.url);
     const connection = parseValkeyConnectionOptions(config.valkey.url);
-    const mqttClient = createMqttClient(config.mqtt, logger);
+    const gatewayQueue = createGatewayQueue(connection);
+    const mqttClient = createMqttClient(
+      config.mqtt,
+      logger,
+      createMqttCommandEnqueuer({ valkey, queue: gatewayQueue, logger }),
+    );
     const session = createGatewaySession(config.rf003, logger);
     const client = createGatewayClient(config.rf003, session, logger);
     const operations = createGatewayOperations(client);
-    createGatewayQueue(connection);
     createGatewayWorker(connection, logger, createGatewayWorkerDeps({ config, valkey, mqttClient, operations }));
 
     const httpLogger = logger.child({ module: "http" });
