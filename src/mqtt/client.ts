@@ -2,16 +2,17 @@ import mqtt, { type IClientOptions, type MqttClient } from "mqtt";
 import type { Logger } from "pino";
 import type { AppConfig } from "../config/env";
 import { haBrightnessToRf003 } from "./state";
-import { availabilityTopic, lightCommandTopic, switchCommandTopic } from "./topics";
+import { availabilityTopic, fanCommandTopic, lightCommandTopic, switchCommandTopic } from "./topics";
 
 export type MqttCommand =
   | { kind: "switch"; objectId: string; state: "ON" | "OFF" }
+  | { kind: "fan"; objectId: string; state: "ON" | "OFF" }
   | { kind: "light"; objectId: string; brightness: number };
 
 export type EnqueueMqttCommand = (command: MqttCommand) => void | Promise<void>;
 
 type ParsedCommandTopic = {
-  kind: "switch" | "light";
+  kind: "switch" | "light" | "fan";
   objectId: string;
 };
 
@@ -29,7 +30,7 @@ const parseCommandTopic = (baseTopic: string, topic: string): ParsedCommandTopic
   const [kind, objectId, suffix, ...extra] = topic.slice(prefix.length).split("/");
   if (
     extra.length > 0 ||
-    (kind !== "switch" && kind !== "light") ||
+    (kind !== "switch" && kind !== "light" && kind !== "fan") ||
     objectId === undefined ||
     objectId === "" ||
     suffix !== "set"
@@ -87,7 +88,11 @@ export const createMqttClient = (
   enqueueCommand?: EnqueueMqttCommand,
 ): MqttClient => {
   const mqttLogger = logger.child({ module: "mqtt" });
-  const commandTopics = [switchCommandTopic(config.baseTopic, "+"), lightCommandTopic(config.baseTopic, "+")];
+  const commandTopics = [
+    switchCommandTopic(config.baseTopic, "+"),
+    lightCommandTopic(config.baseTopic, "+"),
+    fanCommandTopic(config.baseTopic, "+"),
+  ];
 
   const connectOptions: IClientOptions = {
     will: { topic: availabilityTopic(config.baseTopic), payload: "offline", retain: true, qos: 0 },
@@ -130,15 +135,15 @@ export const createMqttClient = (
       return;
     }
 
-    if (parsedTopic.kind === "switch") {
+    if (parsedTopic.kind === "switch" || parsedTopic.kind === "fan") {
       const state = rawPayload.trim();
       if (state !== "ON" && state !== "OFF") {
-        mqttLogger.warn({ topic, payload: rawPayload }, "invalid switch command payload");
+        mqttLogger.warn({ topic, payload: rawPayload }, `invalid ${parsedTopic.kind} command payload`);
         return;
       }
 
-      void Promise.resolve(enqueueCommand({ kind: "switch", objectId: parsedTopic.objectId, state })).catch((err) => {
-        mqttLogger.error({ err, topic }, "failed to enqueue mqtt switch command");
+      void Promise.resolve(enqueueCommand({ kind: parsedTopic.kind, objectId: parsedTopic.objectId, state })).catch((err) => {
+        mqttLogger.error({ err, topic }, `failed to enqueue mqtt ${parsedTopic.kind} command`);
       });
       return;
     }

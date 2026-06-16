@@ -7,6 +7,11 @@ describe("MQTT state conversion", () => {
     expect(buildMqttStatePayload({ kind: "switch", state: { on: false } })).toBe("OFF");
   });
 
+  test("builds fan state payloads", () => {
+    expect(buildMqttStatePayload({ kind: "fan", state: { on: true } })).toBe("ON");
+    expect(buildMqttStatePayload({ kind: "fan", state: { on: false } })).toBe("OFF");
+  });
+
   test("throws when switch state is missing on", () => {
     expect(() => buildMqttStatePayload({ kind: "switch", state: {} })).toThrow("Missing boolean switch state: on");
   });

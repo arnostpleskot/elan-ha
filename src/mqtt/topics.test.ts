@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
   availabilityTopic,
+  fanCommandTopic,
+  fanDiscoveryTopic,
+  fanStateTopic,
   lightCommandTopic,
   lightDiscoveryTopic,
   lightStateTopic,
@@ -35,5 +38,11 @@ describe("mqtt topics", () => {
     expect(lightDiscoveryTopic("homeassistant", "inels_47742")).toBe("homeassistant/light/inels_47742/config");
     expect(lightStateTopic("inels", "inels_47742")).toBe("inels/light/inels_47742/state");
     expect(lightCommandTopic("inels", "inels_47742")).toBe("inels/light/inels_47742/set");
+  });
+
+  test("builds fan discovery and runtime topics", () => {
+    expect(fanDiscoveryTopic("homeassistant", "inels_09355")).toBe("homeassistant/fan/inels_09355/config");
+    expect(fanStateTopic("inels", "inels_09355")).toBe("inels/fan/inels_09355/state");
+    expect(fanCommandTopic("inels", "inels_09355")).toBe("inels/fan/inels_09355/set");
   });
 });

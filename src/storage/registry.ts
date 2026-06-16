@@ -18,10 +18,14 @@ const truncate = (value: string, max: number): string =>
 
 const hasStringEntityFields = (value: Record<string, unknown>): boolean =>
   typeof value.id === "string" &&
+  typeof value.sourceId === "string" &&
   typeof value.name === "string" &&
   typeof value.productType === "string" &&
   typeof value.rf003Type === "string" &&
   typeof value.objectId === "string";
+
+const hasValidSourceAddress = (value: Record<string, unknown>): boolean =>
+  typeof value.sourceAddress === "number" && Number.isInteger(value.sourceAddress) && value.sourceAddress >= 0;
 
 const isBrightnessCapability = (value: unknown): boolean =>
   Array.isArray(value) && value.length === 1 && value[0] === "brightness";
@@ -36,15 +40,23 @@ const isValidBrightness = (value: unknown): boolean =>
   Number.isFinite(value.step);
 
 const isDiscoveredEntity = (value: unknown): value is DiscoveredEntity => {
-  if (!isRecord(value) || !hasStringEntityFields(value)) {
+  if (!isRecord(value) || !hasStringEntityFields(value) || !hasValidSourceAddress(value)) {
     return false;
   }
 
-  if (value.kind === "switch") {
+  if ((value.kind === "switch" || value.kind === "fan") && value.capability === "on_off") {
     return true;
   }
 
-  return value.kind === "light" && isBrightnessCapability(value.capabilities) && isValidBrightness(value.brightness);
+  if (value.kind !== "light") {
+    return false;
+  }
+
+  if (value.capability === "on_off") {
+    return true;
+  }
+
+  return value.capability === "brightness" && isBrightnessCapability(value.capabilities) && isValidBrightness(value.brightness);
 };
 
 // Registry corruption or unavailability is treated as an empty registry so the

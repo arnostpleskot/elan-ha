@@ -29,4 +29,13 @@ export const lightStateTopic = (baseTopic: string, objectId: string): string =>
 export const lightCommandTopic = (baseTopic: string, objectId: string): string =>
   joinTopic(baseTopic, "light", normalizeTopicSegment(objectId), "set");
 
+export const fanDiscoveryTopic = (discoveryPrefix: string, objectId: string): string =>
+  joinTopic(discoveryPrefix, "fan", normalizeTopicSegment(objectId), "config");
+
+export const fanStateTopic = (baseTopic: string, objectId: string): string =>
+  joinTopic(baseTopic, "fan", normalizeTopicSegment(objectId), "state");
+
+export const fanCommandTopic = (baseTopic: string, objectId: string): string =>
+  joinTopic(baseTopic, "fan", normalizeTopicSegment(objectId), "set");
+
 export const availabilityTopic = (baseTopic: string): string => joinTopic(baseTopic, "status");

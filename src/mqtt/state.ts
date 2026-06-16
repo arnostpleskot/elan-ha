@@ -25,12 +25,12 @@ export const buildMqttStatePayload = ({
   kind,
   state,
 }: {
-  kind: "switch" | "light";
+  kind: "switch" | "light" | "fan";
   state: GatewayDeviceState;
 }): string | undefined => {
-  if (kind === "switch") {
+  if (kind === "switch" || kind === "fan") {
     if (typeof state.on !== "boolean") {
-      throw new Error("Missing boolean switch state: on");
+      throw new Error(`Missing boolean ${kind} state: on`);
     }
 
     return state.on === true ? "ON" : "OFF";

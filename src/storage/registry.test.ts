@@ -4,11 +4,38 @@ import { loadDeviceRegistry, saveDeviceRegistry } from "./registry";
 
 const entity: DiscoveredEntity = {
   id: "09354",
+  sourceId: "09354",
+  sourceAddress: 9354,
   kind: "switch",
+  capability: "on_off",
   name: "Strop - Chodba",
   productType: "RFSA-66M",
   rf003Type: "light",
   objectId: "inels_09354",
+};
+
+const fanEntity: DiscoveredEntity = {
+  id: "09355",
+  sourceId: "09355",
+  sourceAddress: 9355,
+  kind: "fan",
+  capability: "on_off",
+  name: "Bathroom Fan",
+  productType: "RFSA-66M",
+  rf003Type: "ventilation",
+  objectId: "inels_09355",
+};
+
+const onOffLightEntity: DiscoveredEntity = {
+  id: "09356",
+  sourceId: "09356",
+  sourceAddress: 9356,
+  kind: "light",
+  capability: "on_off",
+  name: "Hall Light",
+  productType: "RFSA-66M",
+  rf003Type: "light",
+  objectId: "inels_09356",
 };
 
 const makeLogger = () => {
@@ -33,6 +60,13 @@ describe("device registry storage", () => {
 
     await saveDeviceRegistry(redis, [entity]);
     expect(await loadDeviceRegistry(redis, logger)).toEqual([entity]);
+  });
+
+  test("loads fan and on/off light entities", async () => {
+    const redis = { get: async () => JSON.stringify([fanEntity, onOffLightEntity]) };
+    const { logger } = makeLogger();
+
+    expect(await loadDeviceRegistry(redis, logger)).toEqual([fanEntity, onOffLightEntity]);
   });
 
   test("returns an empty registry when the key is absent", async () => {
@@ -72,6 +106,7 @@ describe("device registry storage", () => {
     const light = {
       ...entity,
       kind: "light",
+      capability: "brightness",
       capabilities: ["brightness"],
       brightness: { min: 0, max: 100, step: Number.POSITIVE_INFINITY },
     };

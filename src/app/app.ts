@@ -9,6 +9,8 @@ import { buildDiscoveryPayload } from "../mqtt/discovery";
 import { buildMqttStatePayload } from "../mqtt/state";
 import {
   availabilityTopic,
+  fanDiscoveryTopic,
+  fanStateTopic,
   lightDiscoveryTopic,
   lightStateTopic,
   switchDiscoveryTopic,
@@ -29,15 +31,25 @@ export type App = {
 
 const BRIDGE_NAME = "iNELS Bridge";
 
-const discoveryTopic = (config: AppConfig, entity: DiscoveredEntity): string =>
-  entity.kind === "switch"
-    ? switchDiscoveryTopic(config.mqtt.discoveryPrefix, entity.objectId)
-    : lightDiscoveryTopic(config.mqtt.discoveryPrefix, entity.objectId);
+const discoveryTopic = (config: AppConfig, entity: DiscoveredEntity): string => {
+  if (entity.kind === "switch") {
+    return switchDiscoveryTopic(config.mqtt.discoveryPrefix, entity.objectId);
+  }
+  if (entity.kind === "fan") {
+    return fanDiscoveryTopic(config.mqtt.discoveryPrefix, entity.objectId);
+  }
+  return lightDiscoveryTopic(config.mqtt.discoveryPrefix, entity.objectId);
+};
 
-const stateTopic = (config: AppConfig, entity: DiscoveredEntity): string =>
-  entity.kind === "switch"
-    ? switchStateTopic(config.mqtt.baseTopic, entity.objectId)
-    : lightStateTopic(config.mqtt.baseTopic, entity.objectId);
+const stateTopic = (config: AppConfig, entity: DiscoveredEntity): string => {
+  if (entity.kind === "switch") {
+    return switchStateTopic(config.mqtt.baseTopic, entity.objectId);
+  }
+  if (entity.kind === "fan") {
+    return fanStateTopic(config.mqtt.baseTopic, entity.objectId);
+  }
+  return lightStateTopic(config.mqtt.baseTopic, entity.objectId);
+};
 
 type WorkerDepsValkey = {
   get: (key: string) => Promise<string | null>;
@@ -215,7 +227,7 @@ export const createMqttCommandEnqueuer = ({
       return;
     }
 
-    if (command.kind === "switch") {
+    if (command.kind === "switch" || command.kind === "fan") {
       await queue.add(
         GatewayJobName.SetOutput,
         { deviceId: entity.id, state: command.state },

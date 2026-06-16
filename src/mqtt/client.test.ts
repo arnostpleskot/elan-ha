@@ -45,12 +45,12 @@ beforeEach(() => {
 });
 
 describe("createMqttClient", () => {
-  test("subscribes to switch and light command topics on connect", () => {
+  test("subscribes to switch, light, and fan command topics on connect", () => {
     createMqttClient(config, logger);
 
     handlers.get("connect")?.();
 
-    expect(subscriptions).toEqual(["inels/switch/+/set", "inels/light/+/set"]);
+    expect(subscriptions).toEqual(["inels/switch/+/set", "inels/light/+/set", "inels/fan/+/set"]);
   });
 
   test("publishes retained online availability on connect", () => {
@@ -78,7 +78,7 @@ describe("createMqttClient", () => {
     handlers.get("connect")?.();
     handlers.get("message")?.("inels/switch/inels_09354/set", Buffer.from("ON"));
 
-    expect(subscriptions).toEqual(["inels/switch/+/set", "inels/light/+/set"]);
+    expect(subscriptions).toEqual(["inels/switch/+/set", "inels/light/+/set", "inels/fan/+/set"]);
     expect(commands).toEqual([{ kind: "switch", objectId: "inels_09354", state: "ON" }]);
   });
 
@@ -91,6 +91,17 @@ describe("createMqttClient", () => {
     handlers.get("message")?.("inels/switch/inels_09354/set", Buffer.from("ON"));
 
     expect(commands).toEqual([{ kind: "switch", objectId: "inels_09354", state: "ON" }]);
+  });
+
+  test("dispatches fan command from command topic", () => {
+    const commands: unknown[] = [];
+    createMqttClient(config, logger, async (command) => {
+      commands.push(command);
+    });
+
+    handlers.get("message")?.("inels/fan/inels_09355/set", Buffer.from("OFF"));
+
+    expect(commands).toEqual([{ kind: "fan", objectId: "inels_09355", state: "OFF" }]);
   });
 
   test("dispatches light brightness command with RF-003 brightness", () => {

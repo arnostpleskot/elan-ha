@@ -38,7 +38,7 @@ const baseEntity = (id: string, detail: GatewayDeviceDetail) => {
   };
 };
 
-const onOffDomain = (semanticType: string): "switch" | "light" | "fan" | undefined => {
+const onOffDomain = (semanticType: string): "switch" | "light" | "fan" => {
   if (semanticType === "light" || semanticType === "lamp") {
     return "light";
   }
@@ -80,10 +80,6 @@ export const classifyGatewayDevice = ({ id, detail, state }: ClassifyGatewayDevi
 
   if (hasPrimaryAction(detail, "on") && actions.on?.type === "bool" && typeof state.on === "boolean") {
     const domain = onOffDomain(normalizedSemanticType(detail));
-    if (domain === undefined) {
-      return undefined;
-    }
-
     return { ...base, kind: domain, capability: "on_off" };
   }
 

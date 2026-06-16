@@ -24,16 +24,22 @@ const logger = {
 
 const switchEntity: DiscoveredEntity = {
   id: "09354",
+  sourceId: "09354",
+  sourceAddress: 9354,
   kind: "switch",
+  capability: "on_off",
   name: "Hall",
   productType: "RFSA-66M",
-  rf003Type: "light",
-  objectId: "inels_09354",
+  rf003Type: "unknown",
+  objectId: "inels_9354",
 };
 
 const lightEntity: DiscoveredEntity = {
   id: "07101",
+  sourceId: "07101",
+  sourceAddress: 7101,
   kind: "light",
+  capability: "brightness",
   capabilities: ["brightness"],
   name: "Kitchen",
   productType: "RFDA-71B",
@@ -369,7 +375,7 @@ function makeDeps(overrides: Partial<GatewayWorkerDeps> = {}): GatewayWorkerDeps
 
 function makeSwitchDetail(): GatewayDeviceDetail {
   return {
-    "device info": { label: "Hall", "product type": "RFSA-66M", type: "light" },
+    "device info": { label: "Hall", "product type": "RFSA-66M", type: "unknown", address: 9354 },
     "actions info": { on: { type: "bool" } },
     "primary actions": ["on"],
   };
