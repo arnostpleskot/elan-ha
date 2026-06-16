@@ -17,10 +17,46 @@ const productType = (detail: GatewayDeviceDetail): string => detail["device info
 
 const rf003Type = (detail: GatewayDeviceDetail): string => detail["device info"]?.type ?? fallback;
 
-export const entityObjectId = (id: string): string => `inels_${id}`;
+export const entityObjectId = (sourceAddress: number): string => `inels_${sourceAddress}`;
+
+const normalizedSemanticType = (detail: GatewayDeviceDetail): string => rf003Type(detail).trim().toLowerCase();
+
+const baseEntity = (id: string, detail: GatewayDeviceDetail) => {
+  const sourceAddress = detail["device info"]?.address;
+  if (typeof sourceAddress !== "number" || !Number.isInteger(sourceAddress) || sourceAddress < 0) {
+    return undefined;
+  }
+
+  return {
+    id,
+    sourceId: id,
+    sourceAddress,
+    name: deviceName(id, detail),
+    productType: productType(detail),
+    rf003Type: rf003Type(detail),
+    objectId: entityObjectId(sourceAddress),
+  };
+};
+
+const onOffDomain = (semanticType: string): "switch" | "light" | "fan" | undefined => {
+  if (semanticType === "light" || semanticType === "lamp") {
+    return "light";
+  }
+  if (semanticType === "ventilation") {
+    return "fan";
+  }
+  if (semanticType === fallback.toLowerCase() || semanticType === "unknown" || semanticType === "") {
+    return "switch";
+  }
+  return "switch";
+};
 
 export const classifyGatewayDevice = ({ id, detail, state }: ClassifyGatewayDeviceInput): DiscoveredEntity | undefined => {
   const actions = detail["actions info"] ?? {};
+  const base = baseEntity(id, detail);
+  if (base === undefined) {
+    return undefined;
+  }
 
   const brightness = actions.brightness;
   const stateBrightness = state.brightness;
@@ -30,13 +66,10 @@ export const classifyGatewayDevice = ({ id, detail, state }: ClassifyGatewayDevi
     (typeof stateBrightness === "number" || stateBrightness === null)
   ) {
     return {
-      id,
+      ...base,
       kind: "light",
+      capability: "brightness",
       capabilities: ["brightness"],
-      name: deviceName(id, detail),
-      productType: productType(detail),
-      rf003Type: rf003Type(detail),
-      objectId: entityObjectId(id),
       brightness: {
         min: brightness.min ?? 0,
         max: brightness.max ?? 100,
@@ -46,14 +79,12 @@ export const classifyGatewayDevice = ({ id, detail, state }: ClassifyGatewayDevi
   }
 
   if (hasPrimaryAction(detail, "on") && actions.on?.type === "bool" && typeof state.on === "boolean") {
-    return {
-      id,
-      kind: "switch",
-      name: deviceName(id, detail),
-      productType: productType(detail),
-      rf003Type: rf003Type(detail),
-      objectId: entityObjectId(id),
-    };
+    const domain = onOffDomain(normalizedSemanticType(detail));
+    if (domain === undefined) {
+      return undefined;
+    }
+
+    return { ...base, kind: domain, capability: "on_off" };
   }
 
   return undefined;
