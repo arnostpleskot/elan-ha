@@ -1,4 +1,4 @@
-import mqtt, { type IClientOptions, type MqttClient } from "mqtt";
+import mqtt, { type IClientOptions, type IClientPublishOptions, type MqttClient, type PacketCallback } from "mqtt";
 import type { Logger } from "pino";
 import type { AppConfig } from "../config/env";
 import { haBrightnessToRf003 } from "./state";
@@ -15,6 +15,43 @@ export type EnqueueMqttCommand = (command: MqttCommand) => void | Promise<void>;
 type ParsedCommandTopic = {
   kind: "switch" | "light" | "fan";
   objectId: string;
+};
+
+const redactedValue = "[Redacted]";
+const redactedKeys = new Set(["password", "key", "cookie", "authorization"]);
+
+const redactJsonPayload = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map(redactJsonPayload);
+  }
+
+  if (typeof value !== "object" || value === null) {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, childValue]) => [
+      key,
+      redactedKeys.has(key.toLowerCase()) ? redactedValue : redactJsonPayload(childValue),
+    ]),
+  );
+};
+
+const sanitizeMqttPayloadForLog = (payload: string | Buffer): unknown => {
+  const payloadText = Buffer.isBuffer(payload) ? payload.toString() : payload;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(payloadText);
+  } catch {
+    return payloadText;
+  }
+
+  if (typeof parsed !== "object" || parsed === null) {
+    return payloadText;
+  }
+
+  return redactJsonPayload(parsed);
 };
 
 const parseCommandTopic = (baseTopic: string, topic: string): ParsedCommandTopic | undefined => {
@@ -107,18 +144,40 @@ export const createMqttClient = (
 
   const client = mqtt.connect(config.url, connectOptions);
   const rawPublish = client.publish.bind(client);
-  client.publish = ((
+  function publishWithLogging(topic: string, payload: string | Buffer): MqttClient;
+  function publishWithLogging(topic: string, payload: string | Buffer, callback?: PacketCallback): MqttClient;
+  function publishWithLogging(
     topic: string,
-    payload: Parameters<MqttClient["publish"]>[1],
-    opts?: Parameters<MqttClient["publish"]>[2],
-    callback?: Parameters<MqttClient["publish"]>[3],
-  ) => {
-    const loggedPayload = Buffer.isBuffer(payload) ? payload.toString() : String(payload);
-    const retain = typeof opts === "object" && opts !== null && "retain" in opts ? opts.retain === true : false;
+    payload: string | Buffer,
+    opts?: IClientPublishOptions,
+    callback?: PacketCallback,
+  ): MqttClient;
+  function publishWithLogging(
+    topic: string,
+    payload: string | Buffer,
+    optsOrCallback?: IClientPublishOptions | PacketCallback,
+    callback?: PacketCallback,
+  ): MqttClient {
+    const loggedPayload = sanitizeMqttPayloadForLog(payload);
+    const retain =
+      typeof optsOrCallback === "object" && optsOrCallback !== null && "retain" in optsOrCallback
+        ? optsOrCallback.retain === true
+        : false;
     mqttLogger.debug({ topic, payload: loggedPayload, retain }, "mqtt message published");
 
-    return rawPublish(topic, payload, opts as never, callback as never);
-  }) as MqttClient["publish"];
+    if (typeof optsOrCallback === "function") {
+      return rawPublish(topic, payload, optsOrCallback);
+    }
+    if (callback !== undefined) {
+      return rawPublish(topic, payload, optsOrCallback, callback);
+    }
+    if (optsOrCallback !== undefined) {
+      return rawPublish(topic, payload, optsOrCallback);
+    }
+
+    return rawPublish(topic, payload);
+  }
+  client.publish = publishWithLogging;
 
   client.on("connect", () => {
     mqttLogger.info({ url: config.url }, "mqtt connected");

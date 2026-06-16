@@ -6,7 +6,7 @@ type MqttHandler = (...args: unknown[]) => void;
 
 const handlers = new Map<string, MqttHandler>();
 const subscriptions: string[] = [];
-const publishes: Array<[string, string, { retain?: boolean }?]> = [];
+const publishes: unknown[][] = [];
 
 const mqttConnect = mock((_url: string, _options: unknown) => ({
   on: (event: string, handler: MqttHandler) => {
@@ -16,8 +16,8 @@ const mqttConnect = mock((_url: string, _options: unknown) => ({
     subscriptions.push(topic);
     callback?.();
   },
-  publish: (topic: string, payload: string, opts?: { retain?: boolean }) => {
-    publishes.push(opts === undefined ? [topic, payload] : [topic, payload, opts]);
+  publish: (topic: string, payload: string | Buffer, ...args: unknown[]) => {
+    publishes.push([topic, payload, ...args]);
   },
 }));
 
@@ -89,6 +89,66 @@ describe("createMqttClient", () => {
       obj: { topic: "inels/test", payload: "payload", retain: true },
       msg: "mqtt message published",
     });
+  });
+
+  test("forwards callback-only MQTT publish overload", () => {
+    const client = createMqttClient(config, logger);
+    const callback = mock(() => {});
+
+    client.publish("inels/test", "payload", callback);
+
+    expect(publishes).toEqual([["inels/test", "payload", callback]]);
+  });
+
+  test("forwards options and callback MQTT publish overload", () => {
+    const client = createMqttClient(config, logger);
+    const callback = mock(() => {});
+
+    client.publish("inels/test", "payload", { retain: true }, callback);
+
+    expect(publishes).toEqual([["inels/test", "payload", { retain: true }, callback]]);
+  });
+
+  test("redacts secret keys in logged JSON MQTT payloads", () => {
+    const { logger, calls } = makeLogger();
+    const client = createMqttClient(config, logger);
+    const payload = JSON.stringify({
+      username: "user",
+      password: "secret",
+      nested: [{ Authorization: "bearer token", value: "visible" }],
+    });
+
+    client.publish("inels/test", payload, { retain: false });
+
+    expect(calls).toContainEqual({
+      level: "debug",
+      obj: {
+        topic: "inels/test",
+        payload: {
+          username: "user",
+          password: "[Redacted]",
+          nested: [{ Authorization: "[Redacted]", value: "visible" }],
+        },
+        retain: false,
+      },
+      msg: "mqtt message published",
+    });
+    expect(publishes).toContainEqual(["inels/test", payload, { retain: false }]);
+  });
+
+  test("logs Buffer MQTT payloads as strings without altering published payload", () => {
+    const { logger, calls } = makeLogger();
+    const client = createMqttClient(config, logger);
+    const payload = Buffer.from("buffer payload");
+
+    client.publish("inels/test", payload);
+
+    expect(calls).toContainEqual({
+      level: "debug",
+      obj: { topic: "inels/test", payload: "buffer payload", retain: false },
+      msg: "mqtt message published",
+    });
+    expect(publishes).toContainEqual(["inels/test", payload]);
   });
 
   test("configures a retained offline Last Will on the normalized availability topic", () => {
