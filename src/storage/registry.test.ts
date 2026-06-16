@@ -11,7 +11,7 @@ const entity: DiscoveredEntity = {
   name: "Strop - Chodba",
   productType: "RFSA-66M",
   rf003Type: "light",
-  objectId: "inels_09354",
+  objectId: "inels_9354",
 };
 
 const fanEntity: DiscoveredEntity = {
@@ -23,7 +23,7 @@ const fanEntity: DiscoveredEntity = {
   name: "Bathroom Fan",
   productType: "RFSA-66M",
   rf003Type: "ventilation",
-  objectId: "inels_09355",
+  objectId: "inels_9355",
 };
 
 const onOffLightEntity: DiscoveredEntity = {
@@ -35,7 +35,7 @@ const onOffLightEntity: DiscoveredEntity = {
   name: "Hall Light",
   productType: "RFSA-66M",
   rf003Type: "light",
-  objectId: "inels_09356",
+  objectId: "inels_9356",
 };
 
 const makeLogger = () => {
@@ -104,6 +104,14 @@ describe("device registry storage", () => {
 
   test("returns an empty registry and logs warn when sourceAddress is malformed", async () => {
     const redis = { get: async () => JSON.stringify([{ ...entity, sourceAddress: 9354.5 }]) };
+    const { logger, warnings } = makeLogger();
+
+    expect(await loadDeviceRegistry(redis, logger)).toEqual([]);
+    expect(warnings).toHaveLength(1);
+  });
+
+  test("returns an empty registry and logs warn when objectId does not match sourceAddress", async () => {
+    const redis = { get: async () => JSON.stringify([{ ...entity, objectId: "inels_09354" }]) };
     const { logger, warnings } = makeLogger();
 
     expect(await loadDeviceRegistry(redis, logger)).toEqual([]);

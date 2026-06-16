@@ -121,6 +121,34 @@ describe("RF-003 entity registry", () => {
     });
   });
 
+  test("returns undefined for explicit unsupported on/off semantic types", () => {
+    const entity = classifyGatewayDevice({
+      id: "44444",
+      detail: {
+        "device info": { label: "Window Blind", "product type": "RFSA-66M", type: "blind", address: 44444 },
+        "actions info": { on: { type: "bool" } },
+        "primary actions": ["on"],
+      },
+      state: { on: true },
+    });
+
+    expect(entity).toBeUndefined();
+  });
+
+  test("returns undefined for explicit unsupported brightness semantic types", () => {
+    const entity = classifyGatewayDevice({
+      id: "55555",
+      detail: {
+        "device info": { label: "Heater", "product type": "RFDA-71B", type: "heating", address: 55555 },
+        "actions info": { brightness: { type: "int", min: 0, max: 100, step: 1 } },
+        "primary actions": ["brightness"],
+      },
+      state: { brightness: 50 },
+    });
+
+    expect(entity).toBeUndefined();
+  });
+
   test("preserves leading-zero IDs for gateway API calls while using address for HA identity", () => {
     const entity = classifyGatewayDevice({
       id: "00472",

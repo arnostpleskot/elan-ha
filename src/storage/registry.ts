@@ -27,6 +27,8 @@ const hasStringEntityFields = (value: Record<string, unknown>): boolean =>
 const hasValidSourceAddress = (value: Record<string, unknown>): boolean =>
   typeof value.sourceAddress === "number" && Number.isInteger(value.sourceAddress) && value.sourceAddress >= 0;
 
+const hasMatchingObjectId = (value: Record<string, unknown>): boolean => value.objectId === `inels_${value.sourceAddress}`;
+
 const isBrightnessCapability = (value: unknown): boolean =>
   Array.isArray(value) && value.length === 1 && value[0] === "brightness";
 
@@ -40,7 +42,7 @@ const isValidBrightness = (value: unknown): boolean =>
   Number.isFinite(value.step);
 
 const isDiscoveredEntity = (value: unknown): value is DiscoveredEntity => {
-  if (!isRecord(value) || !hasStringEntityFields(value) || !hasValidSourceAddress(value)) {
+  if (!isRecord(value) || !hasStringEntityFields(value) || !hasValidSourceAddress(value) || !hasMatchingObjectId(value)) {
     return false;
   }
 

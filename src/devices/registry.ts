@@ -38,18 +38,24 @@ const baseEntity = (id: string, detail: GatewayDeviceDetail) => {
   };
 };
 
-const onOffDomain = (semanticType: string): "switch" | "light" | "fan" => {
+const isFallbackSemanticType = (semanticType: string): boolean =>
+  semanticType === fallback.toLowerCase() || semanticType === "unknown" || semanticType === "";
+
+const onOffDomain = (semanticType: string): "switch" | "light" | "fan" | undefined => {
   if (semanticType === "light" || semanticType === "lamp") {
     return "light";
   }
   if (semanticType === "ventilation") {
     return "fan";
   }
-  if (semanticType === fallback.toLowerCase() || semanticType === "unknown" || semanticType === "") {
+  if (isFallbackSemanticType(semanticType)) {
     return "switch";
   }
-  return "switch";
+  return undefined;
 };
+
+const supportsBrightness = (semanticType: string): boolean =>
+  semanticType === "dimmed light" || semanticType === "light" || semanticType === "lamp" || isFallbackSemanticType(semanticType);
 
 export const classifyGatewayDevice = ({ id, detail, state }: ClassifyGatewayDeviceInput): DiscoveredEntity | undefined => {
   const actions = detail["actions info"] ?? {};
@@ -60,10 +66,12 @@ export const classifyGatewayDevice = ({ id, detail, state }: ClassifyGatewayDevi
 
   const brightness = actions.brightness;
   const stateBrightness = state.brightness;
+  const semanticType = normalizedSemanticType(detail);
   if (
     hasPrimaryAction(detail, "brightness") &&
     brightness?.type === "int" &&
-    (typeof stateBrightness === "number" || stateBrightness === null)
+    (typeof stateBrightness === "number" || stateBrightness === null) &&
+    supportsBrightness(semanticType)
   ) {
     return {
       ...base,
@@ -79,7 +87,11 @@ export const classifyGatewayDevice = ({ id, detail, state }: ClassifyGatewayDevi
   }
 
   if (hasPrimaryAction(detail, "on") && actions.on?.type === "bool" && typeof state.on === "boolean") {
-    const domain = onOffDomain(normalizedSemanticType(detail));
+    const domain = onOffDomain(semanticType);
+    if (domain === undefined) {
+      return undefined;
+    }
+
     return { ...base, kind: domain, capability: "on_off" };
   }
 
