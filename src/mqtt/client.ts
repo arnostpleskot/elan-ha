@@ -106,6 +106,19 @@ export const createMqttClient = (
   }
 
   const client = mqtt.connect(config.url, connectOptions);
+  const rawPublish = client.publish.bind(client);
+  client.publish = ((
+    topic: string,
+    payload: Parameters<MqttClient["publish"]>[1],
+    opts?: Parameters<MqttClient["publish"]>[2],
+    callback?: Parameters<MqttClient["publish"]>[3],
+  ) => {
+    const loggedPayload = Buffer.isBuffer(payload) ? payload.toString() : String(payload);
+    const retain = typeof opts === "object" && opts !== null && "retain" in opts ? opts.retain === true : false;
+    mqttLogger.debug({ topic, payload: loggedPayload, retain }, "mqtt message published");
+
+    return rawPublish(topic, payload, opts as never, callback as never);
+  }) as MqttClient["publish"];
 
   client.on("connect", () => {
     mqttLogger.info({ url: config.url }, "mqtt connected");

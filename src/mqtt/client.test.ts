@@ -33,9 +33,26 @@ const config: AppConfig["mqtt"] = {
   discoveryPrefix: "homeassistant",
 };
 
-const logger = {
-  child: () => ({ info: () => {}, warn: () => {}, error: () => {}, debug: () => {} }),
-} as unknown as Logger;
+const makeLogger = () => {
+  const calls: Array<{ level: "info" | "warn" | "error" | "debug"; obj: unknown; msg?: string }> = [];
+  const push = (level: "info" | "warn" | "error" | "debug", obj: unknown, msg?: string) => {
+    calls.push(msg === undefined ? { level, obj } : { level, obj, msg });
+  };
+
+  return {
+    calls,
+    logger: {
+      child: () => ({
+        info: (obj: unknown, msg?: string) => push("info", obj, msg),
+        warn: (obj: unknown, msg?: string) => push("warn", obj, msg),
+        error: (obj: unknown, msg?: string) => push("error", obj, msg),
+        debug: (obj: unknown, msg?: string) => push("debug", obj, msg),
+      }),
+    } as unknown as Logger,
+  };
+};
+
+const logger = makeLogger().logger;
 
 beforeEach(() => {
   handlers.clear();
@@ -59,6 +76,19 @@ describe("createMqttClient", () => {
     handlers.get("connect")?.();
 
     expect(publishes).toContainEqual(["inels/status", "online", { retain: true }]);
+  });
+
+  test("logs outbound MQTT publishes at debug", () => {
+    const { logger, calls } = makeLogger();
+    const client = createMqttClient(config, logger);
+
+    client.publish("inels/test", "payload", { retain: true });
+
+    expect(calls).toContainEqual({
+      level: "debug",
+      obj: { topic: "inels/test", payload: "payload", retain: true },
+      msg: "mqtt message published",
+    });
   });
 
   test("configures a retained offline Last Will on the normalized availability topic", () => {
