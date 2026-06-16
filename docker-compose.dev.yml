@@ -2,8 +2,7 @@ services:
   app:
     build:
       context: .
-    image: elan-ha:latest
-    restart: unless-stopped
+    image: elan-ha:dev
     env_file:
       - path: .env
         required: false
@@ -19,10 +18,4 @@ services:
 
   valkey:
     image: valkey/valkey:8-alpine
-    restart: unless-stopped
-    command: ["valkey-server", "--appendonly", "yes"]
-    volumes:
-      - valkey-data:/data
-
-volumes:
-  valkey-data:
+    command: ["valkey-server", "--save", "", "--appendonly", "no"]

@@ -1,5 +1,8 @@
 .git
 .worktrees
+.claude
+.opencode
+.agents
 node_modules
 dist
 coverage
@@ -7,3 +10,8 @@ coverage
 .env.*
 !.env.example
 *.log
+Dockerfile*
+docker-compose*.yml
+docs
+skills-lock.json
+opencode.json

@@ -81,10 +81,16 @@ Unsupported RF-003 devices are ignored until support is implemented.
    MQTT_BASE_TOPIC=inels
    ```
 
-3. Start the development runtime:
+3. Start the production-like runtime:
 
    ```bash
    docker compose up --build
+   ```
+
+   For local development with ephemeral Valkey storage, use:
+
+   ```bash
+   docker compose -f docker-compose.dev.yml up --build
    ```
 
 4. Check the bridge:
@@ -120,6 +126,31 @@ Configuration is read from environment variables. Required deployment-specific v
 
 > [!NOTE]
 > `APP_HTTP_PORT` is used by Docker Compose for host port mapping. The app container listens on `HTTP_PORT`, usually `3000`.
+
+## Docker Runtime
+
+The default `docker-compose.yml` is production-like:
+
+- app container built from the hardened multi-stage `Dockerfile`
+- Valkey service with append-only persistence enabled
+- named `valkey-data` volume for registry, queue metadata, and cached bridge metadata
+- `restart: unless-stopped` for app and Valkey
+
+Start it with:
+
+```bash
+docker compose up --build
+```
+
+For development, use `docker-compose.dev.yml`:
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+
+The development Compose file uses ephemeral Valkey storage. If Valkey is recreated, the bridge queues forced discovery on startup and rebuilds the device registry from RF-003. Home Assistant remapping should not be required as long as RF-003 device IDs and MQTT Discovery identifiers remain stable, but discovery and state updates may be delayed until RF-003 rediscovery succeeds.
+
+Mosquitto or another MQTT broker, and Home Assistant, are intentionally external to this repository. Point `MQTT_URL` at the broker you want the bridge to use.
 
 ## MQTT Topics
 
