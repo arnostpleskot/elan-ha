@@ -2,6 +2,7 @@ import mqtt, { type IClientOptions, type MqttClient } from "mqtt";
 import type { Logger } from "pino";
 import type { AppConfig } from "../config/env";
 import { haBrightnessToRf003 } from "./state";
+import { lightCommandTopic, switchCommandTopic } from "./topics";
 
 export type MqttCommand =
   | { kind: "switch"; objectId: string; state: "ON" | "OFF" }
@@ -15,8 +16,13 @@ type ParsedCommandTopic = {
 };
 
 const parseCommandTopic = (baseTopic: string, topic: string): ParsedCommandTopic | undefined => {
-  const prefix = `${baseTopic}/`;
-  if (!topic.startsWith(prefix)) {
+  const switchWildcardTopic = switchCommandTopic(baseTopic, "+");
+  const baseTopicSuffix = "/switch/+/set";
+  const normalizedBaseTopic = switchWildcardTopic.endsWith(baseTopicSuffix)
+    ? switchWildcardTopic.slice(0, -baseTopicSuffix.length)
+    : "";
+  const prefix = normalizedBaseTopic === "" ? "" : `${normalizedBaseTopic}/`;
+  if (prefix !== "" && !topic.startsWith(prefix)) {
     return undefined;
   }
 
@@ -47,7 +53,9 @@ const parseLightCommandPayload = (payload: string): { brightness: number } | und
     parsed === null ||
     Array.isArray(parsed) ||
     typeof (parsed as { brightness?: unknown }).brightness !== "number" ||
-    !Number.isFinite((parsed as { brightness: number }).brightness)
+    !Number.isInteger((parsed as { brightness: number }).brightness) ||
+    (parsed as { brightness: number }).brightness < 0 ||
+    (parsed as { brightness: number }).brightness > 255
   ) {
     return undefined;
   }
@@ -61,7 +69,7 @@ export const createMqttClient = (
   enqueueCommand?: EnqueueMqttCommand,
 ): MqttClient => {
   const mqttLogger = logger.child({ module: "mqtt" });
-  const commandTopics = [`${config.baseTopic}/switch/+/set`, `${config.baseTopic}/light/+/set`];
+  const commandTopics = [switchCommandTopic(config.baseTopic, "+"), lightCommandTopic(config.baseTopic, "+")];
 
   const connectOptions: IClientOptions = {};
   if (config.username !== undefined) {

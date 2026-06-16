@@ -68,6 +68,14 @@ export const createMqttCommandEnqueuer = ({
       return;
     }
 
+    if (entity.kind !== command.kind) {
+      appLogger.warn(
+        { objectId: command.objectId, commandKind: command.kind, entityKind: entity.kind },
+        "mqtt command kind does not match registry entity",
+      );
+      return;
+    }
+
     if (command.kind === "switch") {
       await queue.add(
         GatewayJobName.SetOutput,

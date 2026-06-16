@@ -189,4 +189,17 @@ describe("createMqttCommandEnqueuer", () => {
 
     expect(added).toEqual([]);
   });
+
+  test("does not enqueue when object ID kind does not match command kind", async () => {
+    const added: unknown[][] = [];
+    const enqueue = createMqttCommandEnqueuer({
+      valkey: { get: async () => JSON.stringify([switchEntity]) },
+      queue: { add: async (...args: unknown[]) => added.push(args) },
+      logger,
+    });
+
+    await enqueue({ kind: "light", objectId: "inels_09354", brightness: 50 });
+
+    expect(added).toEqual([]);
+  });
 });

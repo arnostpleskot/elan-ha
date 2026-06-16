@@ -1,9 +1,11 @@
 export const normalizeTopicSegment = (value: string): string =>
-  value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
+  value.trim() === "+"
+    ? "+"
+    : value
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "");
 
 const trimTopicBoundary = (value: string): string => value.trim().replace(/^\/+|\/+$/g, "");
 

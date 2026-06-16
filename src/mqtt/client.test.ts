@@ -48,6 +48,19 @@ describe("createMqttClient", () => {
     expect(subscriptions).toEqual(["inels/switch/+/set", "inels/light/+/set"]);
   });
 
+  test("normalizes base topic boundaries for subscriptions and dispatch", () => {
+    const commands: unknown[] = [];
+    createMqttClient({ ...config, baseTopic: "/inels/" }, logger, async (command) => {
+      commands.push(command);
+    });
+
+    handlers.get("connect")?.();
+    handlers.get("message")?.("inels/switch/inels_09354/set", Buffer.from("ON"));
+
+    expect(subscriptions).toEqual(["inels/switch/+/set", "inels/light/+/set"]);
+    expect(commands).toEqual([{ kind: "switch", objectId: "inels_09354", state: "ON" }]);
+  });
+
   test("dispatches switch command from command topic", () => {
     const commands: unknown[] = [];
     createMqttClient(config, logger, async (command) => {
@@ -88,6 +101,28 @@ describe("createMqttClient", () => {
     });
 
     handlers.get("message")?.("inels/light/inels_47742/set", Buffer.from("{"));
+
+    expect(commands).toEqual([]);
+  });
+
+  test("does not dispatch out-of-range light brightness", () => {
+    const commands: unknown[] = [];
+    createMqttClient(config, logger, async (command) => {
+      commands.push(command);
+    });
+
+    handlers.get("message")?.("inels/light/inels_47742/set", Buffer.from(JSON.stringify({ brightness: 256 })));
+
+    expect(commands).toEqual([]);
+  });
+
+  test("does not dispatch fractional light brightness", () => {
+    const commands: unknown[] = [];
+    createMqttClient(config, logger, async (command) => {
+      commands.push(command);
+    });
+
+    handlers.get("message")?.("inels/light/inels_47742/set", Buffer.from(JSON.stringify({ brightness: 127.5 })));
 
     expect(commands).toEqual([]);
   });
