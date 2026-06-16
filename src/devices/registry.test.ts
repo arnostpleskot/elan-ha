@@ -113,7 +113,12 @@ describe("RF-003 entity registry", () => {
       state: { brightness: 50 },
     });
 
-    expect(entity).toMatchObject({ kind: "light", capability: "brightness", objectId: "inels_33333" });
+    expect(entity).toMatchObject({
+      kind: "light",
+      capability: "brightness",
+      objectId: "inels_33333",
+      brightness: { min: 0, max: 100, step: 1 },
+    });
   });
 
   test("preserves leading-zero IDs for gateway API calls while using address for HA identity", () => {
@@ -138,6 +143,20 @@ describe("RF-003 entity registry", () => {
       id: "12345",
       detail: {
         "device info": { label: "No Address", "product type": "RFSA-66M", type: "light" },
+        "actions info": { on: { type: "bool" } },
+        "primary actions": ["on"],
+      },
+      state: { on: true },
+    });
+
+    expect(entity).toBeUndefined();
+  });
+
+  test("returns undefined when RF-003 address is malformed", () => {
+    const entity = classifyGatewayDevice({
+      id: "12345",
+      detail: {
+        "device info": { label: "Bad Address", "product type": "RFSA-66M", type: "light", address: -1 },
         "actions info": { on: { type: "bool" } },
         "primary actions": ["on"],
       },
