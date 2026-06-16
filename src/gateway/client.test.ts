@@ -5,14 +5,18 @@ import { createGatewayClient } from "./client";
 import { gatewayPaths } from "./paths";
 import { GatewayError, type GatewaySession } from "./types";
 
-const fakeLogger = {
-  child: () => ({
-    info: () => {},
-    warn: () => {},
-    error: () => {},
-    debug: () => {},
-  }),
-} as unknown as Logger;
+const makeLogger = () => {
+  const calls: Array<{ level: "info" | "warn" | "error" | "debug"; obj: unknown; msg?: string }> = [];
+  const child = {
+    info: (obj: unknown, msg?: string) => calls.push({ level: "info", obj, msg }),
+    warn: (obj: unknown, msg?: string) => calls.push({ level: "warn", obj, msg }),
+    error: (obj: unknown, msg?: string) => calls.push({ level: "error", obj, msg }),
+    debug: (obj: unknown, msg?: string) => calls.push({ level: "debug", obj, msg }),
+  };
+  return { calls, logger: { child: () => child } as unknown as Logger };
+};
+
+const fakeLogger = makeLogger().logger;
 
 const config: AppConfig["rf003"] = {
   baseUrl: "http://10.0.0.5",
@@ -96,6 +100,32 @@ describe("createGatewayClient", () => {
     expect(authCount()).toBe(1);
     expect(calls).toHaveLength(2);
     expect(result).toEqual({ ok: true });
+  });
+
+  test("logs retryable 401 at info instead of warn", async () => {
+    const { logger, calls } = makeLogger();
+    const { session } = makeSession([emptyResponse(401), jsonResponse(200, { ok: true })]);
+    const client = createGatewayClient(config, session, logger);
+
+    await client.call(gatewayPaths.devices);
+
+    expect(calls).toContainEqual({ level: "info", obj: { path: gatewayPaths.devices }, msg: "received 401, re-authenticating" });
+    expect(calls.some((call) => call.level === "warn" && call.msg === "received 401, re-authenticating")).toBe(false);
+  });
+
+  test("logs RF-003 request and response metadata at debug", async () => {
+    const { logger, calls } = makeLogger();
+    const { session } = makeSession([jsonResponse(200, { ok: true })]);
+    const client = createGatewayClient(config, session, logger);
+
+    await client.call(gatewayPaths.devices);
+
+    expect(calls).toContainEqual({ level: "debug", obj: { path: gatewayPaths.devices, method: "GET" }, msg: "rf-003 request" });
+    expect(calls).toContainEqual({
+      level: "debug",
+      obj: { path: gatewayPaths.devices, status: 200, contentType: "application/json", body: { ok: true } },
+      msg: "rf-003 response",
+    });
   });
 
   test("throws unauthorized when 401 persists after re-auth", async () => {

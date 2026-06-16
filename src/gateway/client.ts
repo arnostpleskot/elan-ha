@@ -6,6 +6,8 @@ import { GatewayError, type GatewayClient, type GatewaySession } from "./types";
 
 const DEFAULT_INIT: RequestInit = { method: "GET" };
 
+const methodFor = (init: RequestInit): string => init.method ?? "GET";
+
 export const createGatewayClient = (
   config: AppConfig["rf003"],
   session: GatewaySession,
@@ -19,11 +21,13 @@ export const createGatewayClient = (
     call: async (path, init = DEFAULT_INIT) => {
       const url = buildUrl(path);
 
+      clientLogger.debug({ path, method: methodFor(init) }, "rf-003 request");
       let response = await session.fetch(url, init);
 
       if (response.status === 401) {
-        clientLogger.warn({ path }, "received 401, re-authenticating");
+        clientLogger.info({ path }, "received 401, re-authenticating");
         await session.authenticate();
+        clientLogger.debug({ path, method: methodFor(init), retry: true }, "rf-003 request");
         response = await session.fetch(url, init);
       }
 
@@ -35,7 +39,12 @@ export const createGatewayClient = (
         throw new GatewayError("protocol", `HTTP ${response.status} for ${path}`);
       }
 
-      return parseGatewayResponse(response);
+      const body = await parseGatewayResponse(response);
+      clientLogger.debug(
+        { path, status: response.status, contentType: response.headers.get("content-type") ?? "", body },
+        "rf-003 response",
+      );
+      return body;
     },
   };
 };
