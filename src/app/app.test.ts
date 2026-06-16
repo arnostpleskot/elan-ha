@@ -4,7 +4,12 @@ import type { AppConfig } from "../config/env";
 import type { DiscoveredEntity } from "../devices/types";
 import type { GatewayOperations } from "../gateway/operations";
 import { GatewayJobName, JobPriority } from "../queue/jobs";
-import { createGatewayWorkerDeps, createMqttCommandEnqueuer } from "./app";
+import {
+  createAppHttpServerDeps,
+  createGatewayWorkerDeps,
+  createMqttCommandEnqueuer,
+  enqueueStartupGatewayJobs,
+} from "./app";
 
 const config: AppConfig = {
   rf003: { baseUrl: "http://rf003.local", username: "user", password: "pass" },
@@ -201,5 +206,58 @@ describe("createMqttCommandEnqueuer", () => {
     await enqueue({ kind: "light", objectId: "inels_09354", brightness: 50 });
 
     expect(added).toEqual([]);
+  });
+});
+
+describe("app composition helpers", () => {
+  test("force discovery adds a discovery job with discovery priority", async () => {
+    const added: unknown[][] = [];
+    const deps = createAppHttpServerDeps({
+      mqttClient: { connected: true },
+      valkey: { get: async () => null, ping: async () => "PONG" },
+      queue: { add: async (...args: unknown[]) => added.push(args) },
+      session: { authenticate: async () => undefined },
+    });
+
+    await deps.forceDiscovery();
+
+    expect(added).toEqual([[GatewayJobName.ForceDiscovery, {}, { priority: JobPriority.Discovery }]]);
+  });
+
+  test("startup discovery and repeatable full-state polling are queued", async () => {
+    const added: unknown[][] = [];
+
+    await enqueueStartupGatewayJobs({ add: async (...args: unknown[]) => added.push(args) }, config);
+
+    expect(added).toEqual([
+      [GatewayJobName.ForceDiscovery, {}, { priority: JobPriority.Discovery }],
+      [
+        GatewayJobName.PollFullState,
+        {},
+        { priority: JobPriority.Poll, repeat: { every: config.poll.fullStateIntervalMs } },
+      ],
+    ]);
+  });
+
+  test("HTTP getDevices returns the Valkey registry", async () => {
+    const deps = createAppHttpServerDeps({
+      mqttClient: { connected: true },
+      valkey: { get: async () => JSON.stringify([switchEntity]), ping: async () => "PONG" },
+      queue: { add: async () => undefined },
+      session: { authenticate: async () => undefined },
+    });
+
+    await expect(deps.getDevices()).resolves.toEqual([switchEntity]);
+  });
+
+  test("readiness includes RF-003 session check", async () => {
+    const deps = createAppHttpServerDeps({
+      mqttClient: { connected: true },
+      valkey: { get: async () => null, ping: async () => "PONG" },
+      queue: { add: async () => undefined },
+      session: { authenticate: async () => undefined },
+    });
+
+    await expect(deps.getReadiness()).resolves.toEqual({ ready: true, mqtt: true, valkey: true, rf003: true });
   });
 });

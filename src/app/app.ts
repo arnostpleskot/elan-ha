@@ -4,6 +4,7 @@ import type { DiscoveredEntity } from "../devices/types";
 import { createGatewayClient } from "../gateway/client";
 import { createGatewayOperations, type GatewayOperations } from "../gateway/operations";
 import { createGatewaySession } from "../gateway/session";
+import type { GatewaySession } from "../gateway/types";
 import { createMqttClient, type EnqueueMqttCommand, type MqttCommand } from "../mqtt/client";
 import { buildDiscoveryPayload } from "../mqtt/discovery";
 import { buildMqttStatePayload } from "../mqtt/state";
@@ -48,6 +49,54 @@ type CommandQueue = {
 
 type CommandValkey = {
   get: (key: string) => Promise<string | null>;
+};
+
+type AppHttpMqttClient = {
+  connected: boolean;
+};
+
+type AppHttpValkey = {
+  get: (key: string) => Promise<string | null>;
+  ping: () => Promise<unknown>;
+};
+
+type GatewayQueue = {
+  add: (
+    name: string,
+    data: unknown,
+    opts?: { priority?: number; repeat?: { every: number } },
+  ) => Promise<unknown> | unknown;
+};
+
+export const createAppHttpServerDeps = ({
+  mqttClient,
+  valkey,
+  queue,
+  session,
+}: {
+  mqttClient: AppHttpMqttClient;
+  valkey: AppHttpValkey;
+  queue: GatewayQueue;
+  session: Pick<GatewaySession, "authenticate">;
+}) => ({
+  getReadiness: () =>
+    checkReadiness(mqttClient as never, valkey as never, async () => {
+      // Authentication is a lightweight session check and does not issue device RF calls.
+      await session.authenticate();
+      return true;
+    }),
+  forceDiscovery: async () => {
+    await queue.add(GatewayJobName.ForceDiscovery, {}, { priority: JobPriority.Discovery });
+  },
+  getDevices: () => loadDeviceRegistry(valkey),
+});
+
+export const enqueueStartupGatewayJobs = async (queue: GatewayQueue, config: AppConfig): Promise<void> => {
+  await queue.add(GatewayJobName.ForceDiscovery, {}, { priority: JobPriority.Discovery });
+  await queue.add(GatewayJobName.PollFullState, {}, {
+    priority: JobPriority.Poll,
+    repeat: { every: config.poll.fullStateIntervalMs },
+  });
 };
 
 export const createMqttCommandEnqueuer = ({
@@ -147,11 +196,10 @@ export const createApp = (config: AppConfig, logger: Logger): App => ({
     const client = createGatewayClient(config.rf003, session, logger);
     const operations = createGatewayOperations(client);
     createGatewayWorker(connection, logger, createGatewayWorkerDeps({ config, valkey, mqttClient, operations }));
+    void enqueueStartupGatewayJobs(gatewayQueue, config);
 
     const httpLogger = logger.child({ module: "http" });
-    const server = createHttpServer({
-      getReadiness: () => checkReadiness(mqttClient, valkey),
-    });
+    const server = createHttpServer(createAppHttpServerDeps({ mqttClient, valkey, queue: gatewayQueue, session }));
 
     server.listen({
       hostname: config.http.host,
