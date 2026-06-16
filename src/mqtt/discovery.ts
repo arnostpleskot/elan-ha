@@ -1,48 +1,58 @@
-import type { SwitchChannel } from "../devices/types";
-import { availabilityTopic, normalizeTopicSegment, switchCommandTopic, switchStateTopic } from "./topics";
+import type { DiscoveredEntity } from "../devices/types";
+import {
+  availabilityTopic,
+  lightCommandTopic,
+  lightStateTopic,
+  normalizeTopicSegment,
+  switchCommandTopic,
+  switchStateTopic,
+} from "./topics";
 
-export type SwitchDiscoveryPayload = {
-  name: string;
-  unique_id: string;
-  object_id: string;
-  command_topic: string;
-  state_topic: string;
-  availability_topic: string;
-  payload_on: "ON";
-  payload_off: "OFF";
-  state_on: "ON";
-  state_off: "OFF";
-  device: {
-    identifiers: string[];
-    manufacturer: "ELKO EP";
-    model: "RFSA-66M";
-    name: string;
-    via_device: string;
-  };
-};
-
-type BuildSwitchDiscoveryPayloadInput = {
+type DiscoveryInput = {
   baseTopic: string;
   bridgeName: string;
-  channel: SwitchChannel;
+  entity: DiscoveredEntity;
 };
 
-export const buildSwitchDiscoveryPayload = ({ baseTopic, bridgeName, channel }: BuildSwitchDiscoveryPayloadInput): SwitchDiscoveryPayload => ({
-  name: channel.name,
-  unique_id: channel.objectId,
-  object_id: channel.objectId,
-  command_topic: switchCommandTopic(baseTopic, channel.objectId),
-  state_topic: switchStateTopic(baseTopic, channel.objectId),
-  availability_topic: availabilityTopic(baseTopic),
-  payload_on: "ON",
-  payload_off: "OFF",
-  state_on: "ON",
-  state_off: "OFF",
-  device: {
-    identifiers: [`inels_${channel.deviceId}`],
-    manufacturer: "ELKO EP",
-    model: "RFSA-66M",
-    name: `RFSA-66M ${channel.deviceIndex}`,
-    via_device: normalizeTopicSegment(bridgeName),
-  },
+const deviceBlock = (bridgeName: string, entity: DiscoveredEntity) => ({
+  identifiers: [`inels_${entity.id}`],
+  manufacturer: "ELKO EP" as const,
+  model: entity.productType,
+  name: entity.name,
+  via_device: normalizeTopicSegment(bridgeName),
 });
+
+export const buildDiscoveryPayload = ({ baseTopic, bridgeName, entity }: DiscoveryInput) => {
+  if (entity.kind === "switch") {
+    return {
+      name: entity.name,
+      unique_id: entity.objectId,
+      object_id: entity.objectId,
+      command_topic: switchCommandTopic(baseTopic, entity.objectId),
+      state_topic: switchStateTopic(baseTopic, entity.objectId),
+      availability_topic: availabilityTopic(baseTopic),
+      payload_available: "online" as const,
+      payload_not_available: "offline" as const,
+      payload_on: "ON" as const,
+      payload_off: "OFF" as const,
+      state_on: "ON" as const,
+      state_off: "OFF" as const,
+      device: deviceBlock(bridgeName, entity),
+    };
+  }
+
+  return {
+    name: entity.name,
+    unique_id: entity.objectId,
+    object_id: entity.objectId,
+    command_topic: lightCommandTopic(baseTopic, entity.objectId),
+    state_topic: lightStateTopic(baseTopic, entity.objectId),
+    availability_topic: availabilityTopic(baseTopic),
+    payload_available: "online" as const,
+    payload_not_available: "offline" as const,
+    schema: "json" as const,
+    brightness: true,
+    brightness_scale: 255,
+    device: deviceBlock(bridgeName, entity),
+  };
+};

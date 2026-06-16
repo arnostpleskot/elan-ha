@@ -15,9 +15,9 @@ The MVP is complete when the bridge can:
 - Connect to MQTT using MQTT.js.
 - Authenticate to RF-003 and preserve session cookies.
 - Serialize all RF-003 communication through BullMQ with worker concurrency `1`.
-- Publish retained MQTT Discovery payloads for 24 RFSA-66M switch entities.
-- Subscribe to MQTT command topics for those switches.
-- Send switch commands to RF-003 and publish state only after confirmed RF-003 success or read-back.
+- Publish retained MQTT Discovery payloads for all supported RF-003-discovered entities.
+- Subscribe to MQTT command topics for those entities.
+- Send switch and brightness commands to RF-003 and publish state only after confirmed RF-003 success or read-back.
 - Poll RF-003 state on configurable intervals.
 - Expose `GET /healthz` and `GET /readyz` through Elysia.
 - Provide a way to force device discovery or rediscovery, at minimum as an HTTP endpoint once discovery is implemented.
@@ -95,17 +95,27 @@ Endpoint inventory and command payload details should be sourced from the proof-
 
 ## Device Model
 
-The MVP target is four RFSA-66M relay modules with 24 controllable outputs total.
+The current target hardware includes RFSA-66M relay outputs and an RFDA-71B dimmer output exposed by RF-003. RF-003 discovery is authoritative: the bridge must expose only supported entities returned by RF-003 and must not synthesize missing outputs from physical module capabilities.
 
-Each output maps to one Home Assistant switch entity. Device modeling should make this explicit:
+Supported MVP entity types are:
 
-- RFSA-66M device identity.
-- Channel number.
+- RF-003 devices with an `on` boolean action/state map to Home Assistant switch entities.
+- RF-003 devices with a `brightness` integer action/state map to Home Assistant dimmable light entities.
+
+Device modeling should make RF-003-discovered entity details explicit:
+
+- RF-003 device identity.
+- Channel number, where applicable.
+- Supported entity type.
 - Human-readable name.
 - RF-003 address or identifier needed to read/write the channel.
 - Last known state metadata.
 
 Device configuration is stored in Valkey/Redis. Runtime state must still come from RF-003 reads or confirmed writes. Cached state can speed startup but must not override fresh RF-003 state.
+
+A corrupt or unavailable cached registry must not block fresh discovery or lock out other RF-003 jobs. The registry loader (`loadDeviceRegistry`) treats any failure — Valkey rejection, JSON parse error, or schema validation error — as an empty registry and logs a warning; it never rejects. All call sites (queue worker handlers, HTTP `GET /devices`, MQTT command enqueuer) inherit this contract uniformly. Discovery proceeds against RF-003 and writes a fresh authoritative registry; stale-entity cleanup is skipped because the previous topic list is unavailable. `poll.full_state` skips silently without marking RF-003 readiness, per-device handlers throw a "not found" error so BullMQ retries after discovery rebuilds the registry, the HTTP devices endpoint returns `[]`, and the MQTT command enqueuer drops the command with a warn log.
+
+As a consequence, the `GET /devices` response does not distinguish "no devices configured yet" from "cached registry corrupt" — both surface as HTTP 200 with `[]`. Cache health is observable only through the warn-level log line emitted by `loadDeviceRegistry`; readiness gating remains the source of truth for whether RF-003 has been polled successfully.
 
 ## MQTT Contract
 
@@ -120,10 +130,11 @@ Discovery messages must be retained and follow Home Assistant MQTT Discovery spe
 - Availability topics.
 - State and command payload conventions.
 
-Initial discovery topic pattern:
+Initial discovery topic patterns:
 
 ```text
-homeassistant/switch/inels_rfsa66m_<device>_ch<channel>/config
+homeassistant/switch/<object_id>/config
+homeassistant/light/<object_id>/config
 ```
 
 Topic construction belongs in `src/mqtt/topics.ts`. Discovery payload generation belongs in `src/mqtt/discovery.ts`.
@@ -143,6 +154,7 @@ Required job categories:
 
 ```text
 command.set_output
+command.set_brightness
 poll.full_state
 poll.device_state
 discovery.publish
@@ -164,14 +176,14 @@ Suggested Valkey keys:
 
 ```text
 inels:devices
-inels:state:<device>:<channel>
+inels:state:<entity>
 inels:meta:last_poll
 inels:meta:last_success
 ```
 
 Storage responsibilities:
 
-- Persist configured RFSA-66M devices/channels.
+- Persist normalized supported entities discovered from RF-003.
 - Cache last known states.
 - Store bridge metadata such as last successful poll.
 - Support forced rediscovery by replacing or refreshing stored device configuration.
@@ -238,7 +250,7 @@ POST /discovery/republish
 POST /discovery/force
 ```
 
-`POST /discovery/force` should trigger rediscovery or refresh of RFSA-66M device configuration stored in Valkey.
+`POST /discovery/force` should trigger rediscovery or refresh of supported RF-003-discovered entity configuration stored in Valkey.
 
 ## Logging
 
@@ -308,8 +320,8 @@ Initial tests:
 
 - Config validation accepts valid env and rejects missing required values.
 - MQTT topic generation matches Home Assistant discovery topic expectations.
-- MQTT discovery payloads contain stable identifiers and switch entity fields.
-- RFSA-66M device/channel mapping produces 24 switch channels for the target setup.
+- MQTT discovery payloads contain stable identifiers and switch or dimmable light entity fields.
+- RF-003 discovered entity classification supports switches, dimmable lights, unsupported devices, and leading-zero IDs.
 - Gateway session retries once after HTTP 401 and preserves cookies.
 - Gateway XML parser handles representative RF-003 responses.
 - Queue worker configuration uses concurrency `1`.
@@ -348,7 +360,7 @@ Acceptance details for this phase:
 
 - Add MQTT topic helpers.
 - Add MQTT Discovery payload generation.
-- Add RFSA-66M device/channel modeling.
+- Add RF-003 discovered entity classification.
 - Add queue job names and payload types.
 - Add storage key helpers if useful.
 
@@ -368,8 +380,8 @@ Acceptance details for this phase:
 
 ### Phase 6: End-to-End MVP Flow
 
-- Publish retained discovery for 24 switches.
-- Load device configuration from Valkey.
+- Publish retained discovery for all supported RF-003-discovered entities.
+- Load supported RF-003-discovered entity configuration from Valkey.
 - Execute MQTT commands through BullMQ to RF-003.
 - Publish state after confirmed command success or read-back.
 - Add polling jobs and metadata updates.
@@ -389,8 +401,8 @@ Acceptance details for this phase:
 - `bun run build` passes.
 - Health endpoint returns `{ "status": "ok" }`.
 - Readiness reports dependency failures with HTTP 503.
-- MQTT Discovery publishes 24 retained switch configs for the target RFSA-66M setup.
-- User switch commands are serialized through BullMQ before reaching RF-003.
+- MQTT Discovery publishes retained configs for all supported RF-003-discovered entities.
+- User switch and brightness commands are serialized through BullMQ before reaching RF-003.
 - RF-003 worker concurrency is `1`.
 - No credentials or site-specific secrets are committed.
 

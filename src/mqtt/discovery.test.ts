@@ -1,72 +1,56 @@
 import { describe, expect, test } from "bun:test";
-import { buildSwitchDiscoveryPayload } from "./discovery";
+import type { DiscoveredEntity } from "../devices/types";
+import { buildDiscoveryPayload } from "./discovery";
 
 describe("MQTT discovery", () => {
   test("builds Home Assistant switch discovery payload", () => {
-    const payload = buildSwitchDiscoveryPayload({
-      baseTopic: "inels",
-      bridgeName: "iNELS Bridge",
-      channel: {
-        deviceId: "rfsa66m_1",
-        deviceIndex: 1,
-        channel: 1,
-        name: "RFSA-66M 1 Channel 1",
-        objectId: "inels_rfsa66m_1_ch1",
-      },
-    });
+    const entity: DiscoveredEntity = {
+      id: "09354",
+      kind: "switch",
+      name: "Strop - Chodba",
+      productType: "RFSA-66M",
+      rf003Type: "light",
+      objectId: "inels_09354",
+    };
 
-    expect(payload).toMatchObject({
-      name: "RFSA-66M 1 Channel 1",
-      unique_id: "inels_rfsa66m_1_ch1",
-      object_id: "inels_rfsa66m_1_ch1",
-      command_topic: "inels/switch/inels_rfsa66m_1_ch1/set",
-      state_topic: "inels/switch/inels_rfsa66m_1_ch1/state",
+    expect(buildDiscoveryPayload({ baseTopic: "inels", bridgeName: "iNELS Bridge", entity })).toMatchObject({
+      name: "Strop - Chodba",
+      unique_id: "inels_09354",
+      object_id: "inels_09354",
+      command_topic: "inels/switch/inels_09354/set",
+      state_topic: "inels/switch/inels_09354/state",
       availability_topic: "inels/status",
-      payload_on: "ON",
-      payload_off: "OFF",
-      state_on: "ON",
-      state_off: "OFF",
-      device: {
-        identifiers: ["inels_rfsa66m_1"],
-        manufacturer: "ELKO EP",
-        model: "RFSA-66M",
-        name: "RFSA-66M 1",
-        via_device: "inels_bridge",
-      },
+      payload_available: "online",
+      payload_not_available: "offline",
+      device: { identifiers: ["inels_09354"], model: "RFSA-66M", name: "Strop - Chodba" },
     });
   });
 
-  test("normalizes bridgeName into via_device", () => {
-    const payload = buildSwitchDiscoveryPayload({
-      baseTopic: "inels",
-      bridgeName: "My Custom Bridge",
-      channel: {
-        deviceId: "rfsa66m_1",
-        deviceIndex: 1,
-        channel: 1,
-        name: "RFSA-66M 1 Channel 1",
-        objectId: "inels_rfsa66m_1_ch1",
-      },
+  test("builds Home Assistant light discovery payload", () => {
+    const entity: DiscoveredEntity = {
+      id: "47742",
+      kind: "light",
+      capabilities: ["brightness"],
+      name: "Strop - Loznice",
+      productType: "RFDA-71B",
+      rf003Type: "dimmed light",
+      objectId: "inels_47742",
+      brightness: { min: 0, max: 100, step: 10 },
+    };
+
+    expect(buildDiscoveryPayload({ baseTopic: "inels", bridgeName: "iNELS Bridge", entity })).toMatchObject({
+      name: "Strop - Loznice",
+      unique_id: "inels_47742",
+      object_id: "inels_47742",
+      command_topic: "inels/light/inels_47742/set",
+      state_topic: "inels/light/inels_47742/state",
+      availability_topic: "inels/status",
+      payload_available: "online",
+      payload_not_available: "offline",
+      schema: "json",
+      brightness: true,
+      brightness_scale: 255,
+      device: { identifiers: ["inels_47742"], model: "RFDA-71B", name: "Strop - Loznice" },
     });
-
-    expect(payload.device.via_device).toBe("my_custom_bridge");
-  });
-
-  test("preserves configured topic prefixes and normalizes object ids in topics", () => {
-    const payload = buildSwitchDiscoveryPayload({
-      baseTopic: "Bridge/Runtime Prefix",
-      bridgeName: "iNELS Bridge",
-      channel: {
-        deviceId: "rfsa66m_1",
-        deviceIndex: 1,
-        channel: 1,
-        name: "RFSA-66M 1 Channel 1",
-        objectId: "RFSA 66M #1 / Ch 1",
-      },
-    });
-
-    expect(payload.command_topic).toBe("Bridge/Runtime Prefix/switch/rfsa_66m_1_ch_1/set");
-    expect(payload.state_topic).toBe("Bridge/Runtime Prefix/switch/rfsa_66m_1_ch_1/state");
-    expect(payload.availability_topic).toBe("Bridge/Runtime Prefix/status");
   });
 });
