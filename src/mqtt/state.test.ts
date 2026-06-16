@@ -3,37 +3,46 @@ import { buildMqttStatePayload, haBrightnessToRf003, rf003BrightnessToHa } from 
 
 describe("MQTT state conversion", () => {
   test("builds switch state payloads", () => {
-    expect(buildMqttStatePayload({ kind: "switch", state: { on: true } })).toBe("ON");
-    expect(buildMqttStatePayload({ kind: "switch", state: { on: false } })).toBe("OFF");
+    expect(buildMqttStatePayload({ kind: "switch", capability: "on_off", state: { on: true } })).toBe("ON");
+    expect(buildMqttStatePayload({ kind: "switch", capability: "on_off", state: { on: false } })).toBe("OFF");
   });
 
   test("builds fan state payloads", () => {
-    expect(buildMqttStatePayload({ kind: "fan", state: { on: true } })).toBe("ON");
-    expect(buildMqttStatePayload({ kind: "fan", state: { on: false } })).toBe("OFF");
+    expect(buildMqttStatePayload({ kind: "fan", capability: "on_off", state: { on: true } })).toBe("ON");
+    expect(buildMqttStatePayload({ kind: "fan", capability: "on_off", state: { on: false } })).toBe("OFF");
+  });
+
+  test("builds on/off light state payloads", () => {
+    expect(buildMqttStatePayload({ kind: "light", capability: "on_off", state: { on: true } })).toBe("ON");
+    expect(buildMqttStatePayload({ kind: "light", capability: "on_off", state: { on: false } })).toBe("OFF");
   });
 
   test("throws when switch state is missing on", () => {
-    expect(() => buildMqttStatePayload({ kind: "switch", state: {} })).toThrow("Missing boolean switch state: on");
+    expect(() => buildMqttStatePayload({ kind: "switch", capability: "on_off", state: {} })).toThrow(
+      "Missing boolean switch state: on",
+    );
   });
 
   test("builds light state payloads with converted brightness", () => {
-    expect(buildMqttStatePayload({ kind: "light", state: { brightness: 50 } })).toBe(
+    expect(buildMqttStatePayload({ kind: "light", capability: "brightness", state: { brightness: 50 } })).toBe(
       JSON.stringify({ state: "ON", brightness: 128 }),
     );
   });
 
   test("skips light state when RF-003 brightness is null", () => {
-    expect(buildMqttStatePayload({ kind: "light", state: { brightness: null } })).toBeUndefined();
+    expect(buildMqttStatePayload({ kind: "light", capability: "brightness", state: { brightness: null } })).toBeUndefined();
   });
 
   test("throws when light state is missing brightness", () => {
-    expect(() => buildMqttStatePayload({ kind: "light", state: {} })).toThrow("Missing light state: brightness");
+    expect(() => buildMqttStatePayload({ kind: "light", capability: "brightness", state: {} })).toThrow(
+      "Missing light state: brightness",
+    );
   });
 
   test("throws when light brightness is not finite", () => {
-    expect(() => buildMqttStatePayload({ kind: "light", state: { brightness: Number.NaN } })).toThrow(
-      "Invalid light state: brightness",
-    );
+    expect(() =>
+      buildMqttStatePayload({ kind: "light", capability: "brightness", state: { brightness: Number.NaN } }),
+    ).toThrow("Invalid light state: brightness");
   });
 
   test("converts brightness boundaries", () => {

@@ -236,6 +236,23 @@ export const createMqttCommandEnqueuer = ({
       return;
     }
 
+    if (entity.capability === "on_off" && "state" in command) {
+      await queue.add(
+        GatewayJobName.SetOutput,
+        { deviceId: entity.id, state: command.state },
+        commandJobOptions(),
+      );
+      return;
+    }
+
+    if (entity.capability !== "brightness" || !("brightness" in command)) {
+      appLogger.warn(
+        { objectId: command.objectId, commandKind: command.kind, capability: entity.capability },
+        "mqtt command capability does not match registry entity",
+      );
+      return;
+    }
+
     await queue.add(
       GatewayJobName.SetBrightness,
       { deviceId: entity.id, brightness: command.brightness },
@@ -282,7 +299,7 @@ export const createGatewayWorkerDeps = ({
       }
     },
     publishState: async (entity, state) => {
-      const payload = buildMqttStatePayload({ kind: entity.kind, state });
+      const payload = buildMqttStatePayload({ capability: entity.capability, kind: entity.kind, state });
       if (payload !== undefined) {
         mqttClient.publish(stateTopic(config, entity), payload);
       }

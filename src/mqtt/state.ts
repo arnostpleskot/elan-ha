@@ -1,4 +1,4 @@
-import type { GatewayDeviceState } from "../devices/types";
+import type { EntityCapability, GatewayDeviceState } from "../devices/types";
 
 const clamp = (value: number, min: number, max: number): number => Math.min(Math.max(value, min), max);
 
@@ -22,13 +22,15 @@ export const haBrightnessToRf003 = (brightness: number): number => {
 };
 
 export const buildMqttStatePayload = ({
+  capability,
   kind,
   state,
 }: {
+  capability: EntityCapability;
   kind: "switch" | "light" | "fan";
   state: GatewayDeviceState;
 }): string | undefined => {
-  if (kind === "switch" || kind === "fan") {
+  if (capability === "on_off") {
     if (typeof state.on !== "boolean") {
       throw new Error(`Missing boolean ${kind} state: on`);
     }

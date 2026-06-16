@@ -60,6 +60,18 @@ const lightEntity: DiscoveredEntity = {
   brightness: { min: 0, max: 100, step: 1 },
 };
 
+const onOffLightEntity: DiscoveredEntity = {
+  id: "09356",
+  sourceId: "09356",
+  sourceAddress: 9356,
+  kind: "light",
+  capability: "on_off",
+  name: "Hall Light",
+  productType: "RFSA-66M",
+  rf003Type: "light",
+  objectId: "inels_09356",
+};
+
 const fanEntity: DiscoveredEntity = {
   id: "09355",
   sourceId: "09355",
@@ -121,9 +133,10 @@ describe("createGatewayWorkerDeps", () => {
       logger,
     });
 
-    await deps.publishDiscovery([switchEntity, lightEntity, fanEntity]);
+    await deps.publishDiscovery([switchEntity, lightEntity, onOffLightEntity, fanEntity]);
     await deps.publishState(switchEntity, { on: true });
     await deps.publishState(lightEntity, { brightness: null });
+    await deps.publishState(onOffLightEntity, { on: true });
     await deps.publishState(fanEntity, { on: false });
 
     expect(publishes).toEqual([
@@ -178,6 +191,31 @@ describe("createGatewayWorkerDeps", () => {
         { retain: true },
       ],
       [
+        "homeassistant/light/inels_09356/config",
+        JSON.stringify({
+          name: "Hall Light",
+          unique_id: "inels_09356",
+          object_id: "inels_09356",
+          command_topic: "inels/light/inels_09356/set",
+          state_topic: "inels/light/inels_09356/state",
+          availability_topic: "inels/status",
+          payload_available: "online",
+          payload_not_available: "offline",
+          payload_on: "ON",
+          payload_off: "OFF",
+          state_on: "ON",
+          state_off: "OFF",
+          device: {
+            identifiers: ["inels_09356"],
+            manufacturer: "ELKO EP",
+            model: "RFSA-66M",
+            name: "Hall Light",
+            via_device: "inels_bridge",
+          },
+        }),
+        { retain: true },
+      ],
+      [
         "homeassistant/fan/inels_09355/config",
         JSON.stringify({
           name: "Bathroom Fan",
@@ -203,6 +241,7 @@ describe("createGatewayWorkerDeps", () => {
         { retain: true },
       ],
       ["inels/switch/inels_09354/state", "ON"],
+      ["inels/light/inels_09356/state", "ON"],
       ["inels/fan/inels_09355/state", "OFF"],
     ]);
   });
@@ -224,11 +263,13 @@ describe("createGatewayWorkerDeps", () => {
 
     await deps.clearDiscovery(switchEntity);
     await deps.clearDiscovery(lightEntity);
+    await deps.clearDiscovery(onOffLightEntity);
     await deps.clearDiscovery(fanEntity);
 
     expect(publishes).toEqual([
       ["homeassistant/switch/inels_09354/config", "", { retain: true }],
       ["homeassistant/light/inels_47742/config", "", { retain: true }],
+      ["homeassistant/light/inels_09356/config", "", { retain: true }],
       ["homeassistant/fan/inels_09355/config", "", { retain: true }],
     ]);
   });
@@ -277,6 +318,21 @@ describe("createMqttCommandEnqueuer", () => {
 
     expect(added).toEqual([
       [GatewayJobName.SetBrightness, { deviceId: "47742", brightness: 50 }, commandJobOptions],
+    ]);
+  });
+
+  test("resolves on/off light object ID and enqueues set output job", async () => {
+    const added: unknown[][] = [];
+    const enqueue = createMqttCommandEnqueuer({
+      valkey: { get: async () => JSON.stringify([onOffLightEntity]) },
+      queue: { add: async (...args: unknown[]) => added.push(args) },
+      logger,
+    });
+
+    await enqueue({ kind: "light", objectId: "inels_09356", state: "ON" });
+
+    expect(added).toEqual([
+      [GatewayJobName.SetOutput, { deviceId: "09356", state: "ON" }, commandJobOptions],
     ]);
   });
 

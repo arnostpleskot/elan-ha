@@ -29,7 +29,7 @@ describe("MQTT discovery", () => {
     });
   });
 
-  test("builds Home Assistant light discovery payload", () => {
+  test("builds Home Assistant dimmable light discovery payload", () => {
     const entity: DiscoveredEntity = {
       id: "47742",
       sourceId: "47742",
@@ -58,6 +58,41 @@ describe("MQTT discovery", () => {
       brightness_scale: 255,
       device: { identifiers: ["inels_47742"], model: "RFDA-71B", name: "Strop - Loznice" },
     });
+  });
+
+  test("builds Home Assistant on/off light discovery payload", () => {
+    const entity: DiscoveredEntity = {
+      id: "09356",
+      sourceId: "09356",
+      sourceAddress: 9356,
+      kind: "light",
+      capability: "on_off",
+      name: "Hall Light",
+      productType: "RFSA-66M",
+      rf003Type: "light",
+      objectId: "inels_09356",
+    };
+
+    const payload = buildDiscoveryPayload({ baseTopic: "inels", bridgeName: "iNELS Bridge", entity });
+
+    expect(payload).toMatchObject({
+      name: "Hall Light",
+      unique_id: "inels_09356",
+      object_id: "inels_09356",
+      command_topic: "inels/light/inels_09356/set",
+      state_topic: "inels/light/inels_09356/state",
+      availability_topic: "inels/status",
+      payload_available: "online",
+      payload_not_available: "offline",
+      payload_on: "ON",
+      payload_off: "OFF",
+      state_on: "ON",
+      state_off: "OFF",
+      device: { identifiers: ["inels_09356"], model: "RFSA-66M", name: "Hall Light" },
+    });
+    expect(payload).not.toHaveProperty("schema");
+    expect(payload).not.toHaveProperty("brightness");
+    expect(payload).not.toHaveProperty("brightness_scale");
   });
 
   test("builds Home Assistant fan discovery payload", () => {

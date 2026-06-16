@@ -61,6 +61,24 @@ export const buildDiscoveryPayload = ({ baseTopic, bridgeName, entity }: Discove
     };
   }
 
+  if (entity.capability === "on_off") {
+    return {
+      name: entity.name,
+      unique_id: entity.objectId,
+      object_id: entity.objectId,
+      command_topic: lightCommandTopic(baseTopic, entity.objectId),
+      state_topic: lightStateTopic(baseTopic, entity.objectId),
+      availability_topic: availabilityTopic(baseTopic),
+      payload_available: "online" as const,
+      payload_not_available: "offline" as const,
+      payload_on: "ON" as const,
+      payload_off: "OFF" as const,
+      state_on: "ON" as const,
+      state_off: "OFF" as const,
+      device: deviceBlock(bridgeName, entity),
+    };
+  }
+
   return {
     name: entity.name,
     unique_id: entity.objectId,

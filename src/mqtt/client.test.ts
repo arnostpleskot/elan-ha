@@ -115,6 +115,21 @@ describe("createMqttClient", () => {
     expect(commands).toEqual([{ kind: "light", objectId: "inels_47742", brightness: 50 }]);
   });
 
+  test("dispatches light ON/OFF command from string payload", () => {
+    const commands: unknown[] = [];
+    createMqttClient(config, logger, async (command) => {
+      commands.push(command);
+    });
+
+    handlers.get("message")?.("inels/light/inels_09356/set", Buffer.from("ON"));
+    handlers.get("message")?.("inels/light/inels_09356/set", Buffer.from("OFF"));
+
+    expect(commands).toEqual([
+      { kind: "light", objectId: "inels_09356", state: "ON" },
+      { kind: "light", objectId: "inels_09356", state: "OFF" },
+    ]);
+  });
+
   test("dispatches light OFF state-only command as zero RF-003 brightness", () => {
     const commands: unknown[] = [];
     createMqttClient(config, logger, async (command) => {

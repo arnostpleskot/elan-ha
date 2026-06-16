@@ -7,6 +7,7 @@ import { availabilityTopic, fanCommandTopic, lightCommandTopic, switchCommandTop
 export type MqttCommand =
   | { kind: "switch"; objectId: string; state: "ON" | "OFF" }
   | { kind: "fan"; objectId: string; state: "ON" | "OFF" }
+  | { kind: "light"; objectId: string; state: "ON" | "OFF" }
   | { kind: "light"; objectId: string; brightness: number };
 
 export type EnqueueMqttCommand = (command: MqttCommand) => void | Promise<void>;
@@ -145,6 +146,16 @@ export const createMqttClient = (
       void Promise.resolve(enqueueCommand({ kind: parsedTopic.kind, objectId: parsedTopic.objectId, state })).catch((err) => {
         mqttLogger.error({ err, topic }, `failed to enqueue mqtt ${parsedTopic.kind} command`);
       });
+      return;
+    }
+
+    const lightState = rawPayload.trim();
+    if (lightState === "ON" || lightState === "OFF") {
+      void Promise.resolve(enqueueCommand({ kind: "light", objectId: parsedTopic.objectId, state: lightState })).catch(
+        (err) => {
+          mqttLogger.error({ err, topic }, "failed to enqueue mqtt light command");
+        },
+      );
       return;
     }
 
