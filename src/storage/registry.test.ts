@@ -11,6 +11,14 @@ const entity: DiscoveredEntity = {
   objectId: "inels_09354",
 };
 
+const makeLogger = () => {
+  const warnings: Array<{ obj: unknown; msg: string }> = [];
+  return {
+    warnings,
+    logger: { warn: (obj: object, msg: string) => warnings.push({ obj, msg }) },
+  };
+};
+
 describe("device registry storage", () => {
   test("saves and loads discovered entities", async () => {
     const values = new Map<string, string>();
@@ -21,32 +29,46 @@ describe("device registry storage", () => {
         return "OK";
       },
     };
+    const { logger } = makeLogger();
 
     await saveDeviceRegistry(redis, [entity]);
-    expect(await loadDeviceRegistry(redis)).toEqual([entity]);
+    expect(await loadDeviceRegistry(redis, logger)).toEqual([entity]);
   });
 
   test("returns an empty registry when the key is absent", async () => {
     const redis = { get: async () => null };
-    expect(await loadDeviceRegistry(redis)).toEqual([]);
+    const { logger, warnings } = makeLogger();
+
+    expect(await loadDeviceRegistry(redis, logger)).toEqual([]);
+    expect(warnings).toEqual([]);
   });
 
-  test("throws a clear error when registry JSON is invalid", async () => {
+  test("returns an empty registry and logs warn when registry JSON is invalid", async () => {
     const redis = { get: async () => "{" };
-    await expect(loadDeviceRegistry(redis)).rejects.toThrow("Invalid device registry in Valkey");
+    const { logger, warnings } = makeLogger();
+
+    expect(await loadDeviceRegistry(redis, logger)).toEqual([]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]?.msg).toContain("registry");
   });
 
-  test("throws a clear error when registry JSON is not an array", async () => {
+  test("returns an empty registry and logs warn when registry JSON is not an array", async () => {
     const redis = { get: async () => JSON.stringify({ devices: [entity] }) };
-    await expect(loadDeviceRegistry(redis)).rejects.toThrow("Invalid device registry in Valkey");
+    const { logger, warnings } = makeLogger();
+
+    expect(await loadDeviceRegistry(redis, logger)).toEqual([]);
+    expect(warnings).toHaveLength(1);
   });
 
-  test("throws a clear error when a switch entity is malformed", async () => {
+  test("returns an empty registry and logs warn when a switch entity is malformed", async () => {
     const redis = { get: async () => JSON.stringify([{ ...entity, id: 9354 }]) };
-    await expect(loadDeviceRegistry(redis)).rejects.toThrow("Invalid device registry in Valkey");
+    const { logger, warnings } = makeLogger();
+
+    expect(await loadDeviceRegistry(redis, logger)).toEqual([]);
+    expect(warnings).toHaveLength(1);
   });
 
-  test("throws a clear error when a light entity is malformed", async () => {
+  test("returns an empty registry and logs warn when a light entity is malformed", async () => {
     const light = {
       ...entity,
       kind: "light",
@@ -54,6 +76,21 @@ describe("device registry storage", () => {
       brightness: { min: 0, max: 100, step: Number.POSITIVE_INFINITY },
     };
     const redis = { get: async () => JSON.stringify([light]) };
-    await expect(loadDeviceRegistry(redis)).rejects.toThrow("Invalid device registry in Valkey");
+    const { logger, warnings } = makeLogger();
+
+    expect(await loadDeviceRegistry(redis, logger)).toEqual([]);
+    expect(warnings).toHaveLength(1);
+  });
+
+  test("returns an empty registry and logs warn when valkey get rejects", async () => {
+    const redis = {
+      get: async () => {
+        throw new Error("ECONNREFUSED");
+      },
+    };
+    const { logger, warnings } = makeLogger();
+
+    expect(await loadDeviceRegistry(redis, logger)).toEqual([]);
+    expect(warnings).toHaveLength(1);
   });
 });

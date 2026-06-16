@@ -67,7 +67,7 @@ describe("createGatewayWorkerDeps", () => {
         sets.push([key, value]);
       },
     };
-    const deps = createGatewayWorkerDeps({ config, valkey, mqttClient: { publish: () => undefined }, operations });
+    const deps = createGatewayWorkerDeps({ config, valkey, mqttClient: { publish: () => undefined }, operations, logger });
 
     await expect(deps.loadRegistry()).resolves.toEqual([switchEntity]);
     await deps.saveRegistry([switchEntity]);
@@ -100,6 +100,7 @@ describe("createGatewayWorkerDeps", () => {
       valkey: { get: async () => null, set: async () => undefined },
       mqttClient,
       operations,
+      logger,
     });
 
     await deps.publishDiscovery([switchEntity, lightEntity]);
@@ -173,6 +174,7 @@ describe("createGatewayWorkerDeps", () => {
       valkey: { get: async () => null, set: async () => undefined },
       mqttClient,
       operations,
+      logger,
     });
 
     await deps.clearDiscovery(switchEntity);
@@ -251,6 +253,7 @@ describe("app composition helpers", () => {
       mqttClient: { connected: true },
       valkey: { get: async () => null, ping: async () => "PONG" },
       queue: { add: async (...args: unknown[]) => added.push(args) },
+      logger,
     });
 
     await deps.forceDiscovery();
@@ -304,9 +307,55 @@ describe("app composition helpers", () => {
       mqttClient: { connected: true },
       valkey: { get: async () => JSON.stringify([switchEntity]), ping: async () => "PONG" },
       queue: { add: async () => undefined },
+      logger,
     });
 
     await expect(deps.getDevices()).resolves.toEqual([switchEntity]);
+  });
+
+  test("HTTP getDevices returns empty registry and logs warn when Valkey is corrupt", async () => {
+    const warnings: Array<{ obj: unknown; msg: string }> = [];
+    const captureLogger = {
+      child: () => ({
+        info: () => {},
+        warn: (obj: object, msg: string) => warnings.push({ obj, msg }),
+        error: () => {},
+        debug: () => {},
+      }),
+    } as unknown as Logger;
+    const deps = createAppHttpServerDeps({
+      config,
+      mqttClient: { connected: true },
+      valkey: { get: async () => "{", ping: async () => "PONG" },
+      queue: { add: async () => undefined },
+      logger: captureLogger,
+    });
+
+    await expect(deps.getDevices()).resolves.toEqual([]);
+    expect(warnings).toHaveLength(1);
+  });
+
+  test("MQTT command enqueuer drops command and logs warn when Valkey is corrupt", async () => {
+    const added: unknown[][] = [];
+    const warnings: Array<{ obj: unknown; msg: string }> = [];
+    const captureLogger = {
+      child: () => ({
+        info: () => {},
+        warn: (obj: object, msg: string) => warnings.push({ obj, msg }),
+        error: () => {},
+        debug: () => {},
+      }),
+    } as unknown as Logger;
+    const enqueue = createMqttCommandEnqueuer({
+      valkey: { get: async () => "{" },
+      queue: { add: async (...args: unknown[]) => added.push(args) },
+      logger: captureLogger,
+    });
+
+    await enqueue({ kind: "switch", objectId: "inels_09354", state: "ON" });
+
+    expect(added).toEqual([]);
+    expect(warnings.length).toBeGreaterThanOrEqual(1);
   });
 
   test("readiness ignores persisted worker success metadata after app start", async () => {
@@ -318,6 +367,7 @@ describe("app composition helpers", () => {
         ping: async () => "PONG",
       },
       queue: { add: async () => undefined },
+      logger,
       gatewaySuccessTracker: createGatewaySuccessTracker(),
     });
 
@@ -331,6 +381,7 @@ describe("app composition helpers", () => {
       valkey: { get: async () => null, set: async () => undefined },
       mqttClient: { publish: () => undefined },
       operations,
+      logger,
       gatewaySuccessTracker,
     });
     const httpDeps = createAppHttpServerDeps({
@@ -338,6 +389,7 @@ describe("app composition helpers", () => {
       mqttClient: { connected: true },
       valkey: { get: async () => null, ping: async () => "PONG" },
       queue: { add: async () => undefined },
+      logger,
       gatewaySuccessTracker,
     });
 
@@ -352,6 +404,7 @@ describe("app composition helpers", () => {
       mqttClient: { connected: true },
       valkey: { get: async () => null, ping: async () => "PONG" },
       queue: { add: async () => undefined },
+      logger,
     });
 
     await expect(deps.getReadiness()).resolves.toEqual({ ready: false, mqtt: true, valkey: true, rf003: false });
@@ -364,6 +417,7 @@ describe("app composition helpers", () => {
       mqttClient: { connected: true },
       valkey: { get: async () => staleTimestamp, ping: async () => "PONG" },
       queue: { add: async () => undefined },
+      logger,
     });
 
     await expect(deps.getReadiness()).resolves.toEqual({ ready: false, mqtt: true, valkey: true, rf003: false });
@@ -375,6 +429,7 @@ describe("app composition helpers", () => {
       mqttClient: { connected: true },
       valkey: { get: async () => "not-a-date", ping: async () => "PONG" },
       queue: { add: async () => undefined },
+      logger,
     });
 
     await expect(deps.getReadiness()).resolves.toEqual({ ready: false, mqtt: true, valkey: true, rf003: false });

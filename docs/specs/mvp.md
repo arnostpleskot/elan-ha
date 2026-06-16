@@ -113,7 +113,7 @@ Device modeling should make RF-003-discovered entity details explicit:
 
 Device configuration is stored in Valkey/Redis. Runtime state must still come from RF-003 reads or confirmed writes. Cached state can speed startup but must not override fresh RF-003 state.
 
-A corrupt or unavailable cached registry must not block fresh discovery or lock out other RF-003 jobs. The worker treats a failing registry read as an empty registry and logs a warning. Discovery proceeds against RF-003 and writes a fresh authoritative registry; stale-entity cleanup is skipped because the previous topic list is unavailable. Other handlers — `poll.full_state`, `poll.device_state`, and command read-back — degrade gracefully: the full poll skips silently without marking RF-003 readiness, and per-device handlers throw a "not found" error so BullMQ retries after discovery rebuilds the registry.
+A corrupt or unavailable cached registry must not block fresh discovery or lock out other RF-003 jobs. The registry loader (`loadDeviceRegistry`) treats any failure — Valkey rejection, JSON parse error, or schema validation error — as an empty registry and logs a warning; it never rejects. All call sites (queue worker handlers, HTTP `GET /devices`, MQTT command enqueuer) inherit this contract uniformly. Discovery proceeds against RF-003 and writes a fresh authoritative registry; stale-entity cleanup is skipped because the previous topic list is unavailable. `poll.full_state` skips silently without marking RF-003 readiness, per-device handlers throw a "not found" error so BullMQ retries after discovery rebuilds the registry, the HTTP devices endpoint returns `[]`, and the MQTT command enqueuer drops the command with a warn log.
 
 ## MQTT Contract
 

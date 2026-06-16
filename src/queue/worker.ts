@@ -9,6 +9,9 @@ import { GatewayJobName } from "./jobs";
 const QUEUE_NAME = "gateway";
 const CONCURRENCY = 1;
 
+// loadRegistry must never reject: callers in app.ts wrap loadDeviceRegistry,
+// which swallows corruption and unavailability so handlers can treat the
+// registry as authoritative-or-empty.
 export type GatewayWorkerDeps = {
   operations: GatewayOperations;
   loadRegistry: () => Promise<DiscoveredEntity[]>;
@@ -51,32 +54,19 @@ const processGatewayJob = async (job: GatewayJob, deps: GatewayWorkerDeps, logge
       await handleDiscovery(deps, logger);
       return;
     case GatewayJobName.SetOutput:
-      await handleSetOutput(parseSetOutputData(job.data), deps, logger);
+      await handleSetOutput(parseSetOutputData(job.data), deps);
       return;
     case GatewayJobName.SetBrightness:
-      await handleSetBrightness(parseSetBrightnessData(job.data), deps, logger);
+      await handleSetBrightness(parseSetBrightnessData(job.data), deps);
       return;
     case GatewayJobName.PollFullState:
-      await handlePollFullState(deps, logger);
+      await handlePollFullState(deps);
       return;
     case GatewayJobName.PollDeviceState:
-      await handlePollDeviceState(parseDeviceStateData(job.data), deps, logger);
+      await handlePollDeviceState(parseDeviceStateData(job.data), deps);
       return;
     default:
       throw new Error(`Unknown gateway job: ${job.name}`);
-  }
-};
-
-// Discovery is authoritative over cached registry: a corrupt or unavailable
-// Valkey entry must not block fresh gateway discovery, and other handlers
-// degrade gracefully so a single bad cache read does not lock out commands
-// or polls until discovery rebuilds the registry.
-const tryLoadRegistry = async (deps: GatewayWorkerDeps, logger: Logger): Promise<DiscoveredEntity[]> => {
-  try {
-    return await deps.loadRegistry();
-  } catch (error) {
-    logger.warn({ err: error }, "registry unavailable; treating as empty");
-    return [];
   }
 };
 
@@ -115,7 +105,7 @@ const parseDeviceStateData = (data: unknown): DeviceStateData => {
 };
 
 const handleDiscovery = async (deps: GatewayWorkerDeps, logger: Logger): Promise<void> => {
-  const previousEntities = await tryLoadRegistry(deps, logger);
+  const previousEntities = await deps.loadRegistry();
   const entities: DiscoveredEntity[] = [];
 
   for (const deviceId of await deps.operations.listDeviceIds()) {
@@ -153,27 +143,27 @@ const findStaleDiscoveryEntities = (
   });
 };
 
-const handleSetOutput = async (data: SetOutputData, deps: GatewayWorkerDeps, logger: Logger): Promise<void> => {
+const handleSetOutput = async (data: SetOutputData, deps: GatewayWorkerDeps): Promise<void> => {
   await deps.operations.setSwitch(data.deviceId, data.state === "ON");
-  await publishReadBackState(data.deviceId, deps, logger);
+  await publishReadBackState(data.deviceId, deps);
 };
 
-const handleSetBrightness = async (data: SetBrightnessData, deps: GatewayWorkerDeps, logger: Logger): Promise<void> => {
+const handleSetBrightness = async (data: SetBrightnessData, deps: GatewayWorkerDeps): Promise<void> => {
   await deps.operations.setBrightness(data.deviceId, data.brightness);
-  await publishReadBackState(data.deviceId, deps, logger);
+  await publishReadBackState(data.deviceId, deps);
 };
 
-const publishReadBackState = async (deviceId: string, deps: GatewayWorkerDeps, logger: Logger): Promise<void> => {
+const publishReadBackState = async (deviceId: string, deps: GatewayWorkerDeps): Promise<void> => {
   const state = await deps.operations.getDeviceState(deviceId);
-  const entity = await findRegistryEntity(deviceId, deps, logger);
+  const entity = await findRegistryEntity(deviceId, deps);
 
   await deps.saveState(deviceId, state);
   await deps.publishState(entity, state);
   await deps.updateLastSuccess();
 };
 
-const handlePollFullState = async (deps: GatewayWorkerDeps, logger: Logger): Promise<void> => {
-  const entities = await tryLoadRegistry(deps, logger);
+const handlePollFullState = async (deps: GatewayWorkerDeps): Promise<void> => {
+  const entities = await deps.loadRegistry();
 
   await deps.updateLastPoll();
 
@@ -190,8 +180,8 @@ const handlePollFullState = async (deps: GatewayWorkerDeps, logger: Logger): Pro
   await deps.updateLastSuccess();
 };
 
-const handlePollDeviceState = async (data: DeviceStateData, deps: GatewayWorkerDeps, logger: Logger): Promise<void> => {
-  const entity = await findRegistryEntity(data.deviceId, deps, logger);
+const handlePollDeviceState = async (data: DeviceStateData, deps: GatewayWorkerDeps): Promise<void> => {
+  const entity = await findRegistryEntity(data.deviceId, deps);
   const state = await deps.operations.getDeviceState(data.deviceId);
 
   await deps.saveState(data.deviceId, state);
@@ -200,8 +190,8 @@ const handlePollDeviceState = async (data: DeviceStateData, deps: GatewayWorkerD
   await deps.updateLastSuccess();
 };
 
-const findRegistryEntity = async (deviceId: string, deps: GatewayWorkerDeps, logger: Logger): Promise<DiscoveredEntity> => {
-  const entity = (await tryLoadRegistry(deps, logger)).find((candidate) => candidate.id === deviceId);
+const findRegistryEntity = async (deviceId: string, deps: GatewayWorkerDeps): Promise<DiscoveredEntity> => {
+  const entity = (await deps.loadRegistry()).find((candidate) => candidate.id === deviceId);
 
   if (entity === undefined) {
     throw new Error(`Device ${deviceId} not found in registry`);

@@ -6,7 +6,9 @@ type RegistryRedis = {
   set: (key: string, value: string) => Promise<unknown>;
 };
 
-const invalidRegistryError = (): Error => new Error("Invalid device registry in Valkey");
+export type RegistryLogger = {
+  warn: (obj: object, msg: string) => void;
+};
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -42,8 +44,23 @@ const isDiscoveredEntity = (value: unknown): value is DiscoveredEntity => {
   return value.kind === "light" && isBrightnessCapability(value.capabilities) && isValidBrightness(value.brightness);
 };
 
-export const loadDeviceRegistry = async (redis: Pick<RegistryRedis, "get">): Promise<DiscoveredEntity[]> => {
-  const raw = await redis.get(deviceRegistryKey());
+// Registry corruption or unavailability is treated as an empty registry so the
+// rest of the bridge degrades gracefully: discovery rebuilds the cache, polls
+// and commands surface "not found" rather than crashing, and a single warn log
+// captures the underlying cause. Callers must trust that this function never
+// rejects.
+export const loadDeviceRegistry = async (
+  redis: Pick<RegistryRedis, "get">,
+  logger: RegistryLogger,
+): Promise<DiscoveredEntity[]> => {
+  let raw: string | null;
+  try {
+    raw = await redis.get(deviceRegistryKey());
+  } catch (err) {
+    logger.warn({ err }, "device registry unavailable; treating as empty");
+    return [];
+  }
+
   if (raw === null) {
     return [];
   }
@@ -51,12 +68,14 @@ export const loadDeviceRegistry = async (redis: Pick<RegistryRedis, "get">): Pro
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
-  } catch {
-    throw invalidRegistryError();
+  } catch (err) {
+    logger.warn({ err }, "device registry JSON invalid; treating as empty");
+    return [];
   }
 
   if (!Array.isArray(parsed) || !parsed.every(isDiscoveredEntity)) {
-    throw invalidRegistryError();
+    logger.warn({ raw }, "device registry schema invalid; treating as empty");
+    return [];
   }
 
   return parsed;

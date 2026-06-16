@@ -138,29 +138,35 @@ export const createAppHttpServerDeps = ({
   mqttClient,
   valkey,
   queue,
+  logger,
   gatewaySuccessTracker = createGatewaySuccessTracker(),
 }: {
   config: AppConfig;
   mqttClient: AppHttpMqttClient;
   valkey: AppHttpValkey;
   queue: GatewayCommandQueue;
+  logger: Logger;
   gatewaySuccessTracker?: GatewaySuccessTracker;
-}) => ({
-  getReadiness: () =>
-    checkReadiness(mqttClient, valkey, async () => {
-      const lastSuccessAtMs = gatewaySuccessTracker.getLastSuccessAtMs();
-      return lastSuccessAtMs !== undefined &&
-        isRecentIsoTimestamp(
-          new Date(lastSuccessAtMs).toISOString(),
-          Date.now(),
-          Math.max(config.poll.fullStateIntervalMs * 2, 60_000),
-        );
-    }),
-  forceDiscovery: async () => {
-    await queue.add(GatewayJobName.ForceDiscovery, {}, discoveryJobOptions());
-  },
-  getDevices: () => loadDeviceRegistry(valkey),
-});
+}) => {
+  const httpLogger = logger.child({ module: "http", component: "devices" });
+
+  return {
+    getReadiness: () =>
+      checkReadiness(mqttClient, valkey, async () => {
+        const lastSuccessAtMs = gatewaySuccessTracker.getLastSuccessAtMs();
+        return lastSuccessAtMs !== undefined &&
+          isRecentIsoTimestamp(
+            new Date(lastSuccessAtMs).toISOString(),
+            Date.now(),
+            Math.max(config.poll.fullStateIntervalMs * 2, 60_000),
+          );
+      }),
+    forceDiscovery: async () => {
+      await queue.add(GatewayJobName.ForceDiscovery, {}, discoveryJobOptions());
+    },
+    getDevices: () => loadDeviceRegistry(valkey, httpLogger),
+  };
+};
 
 export const enqueueStartupGatewayJobs = async (queue: GatewaySchedulerQueue, config: AppConfig): Promise<void> => {
   await queue.add(GatewayJobName.ForceDiscovery, {}, discoveryJobOptions());
@@ -195,7 +201,7 @@ export const createMqttCommandEnqueuer = ({
   const appLogger = logger.child({ module: "app", component: "mqtt-command" });
 
   return async (command: MqttCommand) => {
-    const entity = (await loadDeviceRegistry(valkey)).find((candidate) => candidate.objectId === command.objectId);
+    const entity = (await loadDeviceRegistry(valkey, appLogger)).find((candidate) => candidate.objectId === command.objectId);
     if (entity === undefined) {
       appLogger.warn({ objectId: command.objectId, kind: command.kind }, "mqtt command object id not found");
       return;
@@ -231,48 +237,54 @@ export const createGatewayWorkerDeps = ({
   valkey,
   mqttClient,
   operations,
+  logger,
   gatewaySuccessTracker,
 }: {
   config: AppConfig;
   valkey: WorkerDepsValkey;
   mqttClient: WorkerDepsMqttClient;
   operations: GatewayOperations;
+  logger: Logger;
   gatewaySuccessTracker?: GatewaySuccessTracker;
-}): GatewayWorkerDeps => ({
-  operations,
-  loadRegistry: () => loadDeviceRegistry(valkey),
-  saveRegistry: (entities) => saveDeviceRegistry(valkey, entities),
-  saveState: async (deviceId, state) => {
-    await valkey.set(stateKey(deviceId), JSON.stringify(state));
-  },
-  clearDiscovery: async (entity) => {
-    mqttClient.publish(discoveryTopic(config, entity), "", { retain: true });
-  },
-  publishDiscovery: async (entities) => {
-    publishAvailability(mqttClient, config.mqtt.baseTopic);
-    for (const entity of entities) {
-      mqttClient.publish(
-        discoveryTopic(config, entity),
-        JSON.stringify(buildDiscoveryPayload({ baseTopic: config.mqtt.baseTopic, bridgeName: BRIDGE_NAME, entity })),
-        { retain: true },
-      );
-    }
-  },
-  publishState: async (entity, state) => {
-    const payload = buildMqttStatePayload({ kind: entity.kind, state });
-    if (payload !== undefined) {
-      mqttClient.publish(stateTopic(config, entity), payload);
-    }
-  },
-  updateLastPoll: async () => {
-    await valkey.set(lastPollKey(), new Date().toISOString());
-  },
-  updateLastSuccess: async () => {
-    const timestampMs = Date.now();
-    await valkey.set(lastSuccessKey(), new Date(timestampMs).toISOString());
-    gatewaySuccessTracker?.recordSuccess(timestampMs);
-  },
-});
+}): GatewayWorkerDeps => {
+  const registryLogger = logger.child({ module: "queue", component: "registry" });
+
+  return {
+    operations,
+    loadRegistry: () => loadDeviceRegistry(valkey, registryLogger),
+    saveRegistry: (entities) => saveDeviceRegistry(valkey, entities),
+    saveState: async (deviceId, state) => {
+      await valkey.set(stateKey(deviceId), JSON.stringify(state));
+    },
+    clearDiscovery: async (entity) => {
+      mqttClient.publish(discoveryTopic(config, entity), "", { retain: true });
+    },
+    publishDiscovery: async (entities) => {
+      publishAvailability(mqttClient, config.mqtt.baseTopic);
+      for (const entity of entities) {
+        mqttClient.publish(
+          discoveryTopic(config, entity),
+          JSON.stringify(buildDiscoveryPayload({ baseTopic: config.mqtt.baseTopic, bridgeName: BRIDGE_NAME, entity })),
+          { retain: true },
+        );
+      }
+    },
+    publishState: async (entity, state) => {
+      const payload = buildMqttStatePayload({ kind: entity.kind, state });
+      if (payload !== undefined) {
+        mqttClient.publish(stateTopic(config, entity), payload);
+      }
+    },
+    updateLastPoll: async () => {
+      await valkey.set(lastPollKey(), new Date().toISOString());
+    },
+    updateLastSuccess: async () => {
+      const timestampMs = Date.now();
+      await valkey.set(lastSuccessKey(), new Date(timestampMs).toISOString());
+      gatewaySuccessTracker?.recordSuccess(timestampMs);
+    },
+  };
+};
 
 export const createApp = (config: AppConfig, logger: Logger): App => ({
   start: () => {
@@ -291,14 +303,14 @@ export const createApp = (config: AppConfig, logger: Logger): App => ({
     createGatewayWorker(
       connection,
       logger,
-      createGatewayWorkerDeps({ config, valkey, mqttClient, operations, gatewaySuccessTracker }),
+      createGatewayWorkerDeps({ config, valkey, mqttClient, operations, logger, gatewaySuccessTracker }),
     );
     const appLogger = logger.child({ module: "app" });
     void scheduleStartupGatewayJobs(gatewayQueue, config, appLogger);
 
     const httpLogger = logger.child({ module: "http" });
     const server = createHttpServer(
-      createAppHttpServerDeps({ config, mqttClient, valkey, queue: gatewayQueue, gatewaySuccessTracker }),
+      createAppHttpServerDeps({ config, mqttClient, valkey, queue: gatewayQueue, logger, gatewaySuccessTracker }),
     );
 
     server.listen({
