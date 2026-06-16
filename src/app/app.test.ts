@@ -214,6 +214,7 @@ describe("app composition helpers", () => {
   test("force discovery adds a discovery job with discovery priority", async () => {
     const added: unknown[][] = [];
     const deps = createAppHttpServerDeps({
+      config,
       mqttClient: { connected: true },
       valkey: { get: async () => null, ping: async () => "PONG" },
       queue: { add: async (...args: unknown[]) => added.push(args) },
@@ -224,23 +225,31 @@ describe("app composition helpers", () => {
     expect(added).toEqual([[GatewayJobName.ForceDiscovery, {}, { priority: JobPriority.Discovery }]]);
   });
 
-  test("startup discovery and repeatable full-state polling are queued", async () => {
+  test("startup discovery is queued and full-state polling uses a stable scheduler", async () => {
     const added: unknown[][] = [];
+    const schedulers: unknown[][] = [];
 
-    await enqueueStartupGatewayJobs({ add: async (...args: unknown[]) => added.push(args) }, config);
+    await enqueueStartupGatewayJobs(
+      {
+        add: async (...args: unknown[]) => added.push(args),
+        upsertJobScheduler: async (...args: unknown[]) => schedulers.push(args),
+      },
+      config,
+    );
 
-    expect(added).toEqual([
-      [GatewayJobName.ForceDiscovery, {}, { priority: JobPriority.Discovery }],
+    expect(added).toEqual([[GatewayJobName.ForceDiscovery, {}, { priority: JobPriority.Discovery }]]);
+    expect(schedulers).toEqual([
       [
         GatewayJobName.PollFullState,
-        {},
-        { priority: JobPriority.Poll, repeat: { every: config.poll.fullStateIntervalMs } },
+        { every: config.poll.fullStateIntervalMs },
+        { name: GatewayJobName.PollFullState, data: {}, opts: { priority: JobPriority.Poll } },
       ],
     ]);
   });
 
   test("HTTP getDevices returns the Valkey registry", async () => {
     const deps = createAppHttpServerDeps({
+      config,
       mqttClient: { connected: true },
       valkey: { get: async () => JSON.stringify([switchEntity]), ping: async () => "PONG" },
       queue: { add: async () => undefined },
@@ -252,11 +261,12 @@ describe("app composition helpers", () => {
   test("readiness marks RF-003 ready when worker success metadata exists", async () => {
     const keys: string[] = [];
     const deps = createAppHttpServerDeps({
+      config,
       mqttClient: { connected: true },
       valkey: {
         get: async (key) => {
           keys.push(key);
-          return "2026-06-16T00:00:00.000Z";
+          return new Date().toISOString();
         },
         ping: async () => "PONG",
       },
@@ -269,8 +279,32 @@ describe("app composition helpers", () => {
 
   test("readiness marks RF-003 down when worker success metadata is missing", async () => {
     const deps = createAppHttpServerDeps({
+      config,
       mqttClient: { connected: true },
       valkey: { get: async () => null, ping: async () => "PONG" },
+      queue: { add: async () => undefined },
+    });
+
+    await expect(deps.getReadiness()).resolves.toEqual({ ready: false, mqtt: true, valkey: true, rf003: false });
+  });
+
+  test("readiness marks RF-003 down when worker success metadata is stale", async () => {
+    const staleTimestamp = new Date(Date.now() - Math.max(config.poll.fullStateIntervalMs * 2, 60_000) - 1).toISOString();
+    const deps = createAppHttpServerDeps({
+      config,
+      mqttClient: { connected: true },
+      valkey: { get: async () => staleTimestamp, ping: async () => "PONG" },
+      queue: { add: async () => undefined },
+    });
+
+    await expect(deps.getReadiness()).resolves.toEqual({ ready: false, mqtt: true, valkey: true, rf003: false });
+  });
+
+  test("readiness marks RF-003 down when worker success metadata is malformed", async () => {
+    const deps = createAppHttpServerDeps({
+      config,
+      mqttClient: { connected: true },
+      valkey: { get: async () => "not-a-date", ping: async () => "PONG" },
       queue: { add: async () => undefined },
     });
 

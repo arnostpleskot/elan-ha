@@ -59,36 +59,67 @@ type AppHttpValkey = {
   ping: () => Promise<unknown>;
 };
 
-type GatewayQueue = {
+type GatewayCommandQueue = {
   add: (
     name: string,
     data: unknown,
-    opts?: { priority?: number; repeat?: { every: number } },
+    opts?: { priority?: number },
   ) => Promise<unknown> | unknown;
 };
 
+type GatewaySchedulerQueue = GatewayCommandQueue & {
+  upsertJobScheduler: (
+    id: string,
+    repeat: { every: number },
+    template: { name: string; data: unknown; opts?: { priority?: number } },
+  ) => Promise<unknown> | unknown;
+};
+
+export const isRecentIsoTimestamp = (value: string | null, nowMs: number, maxAgeMs: number): boolean => {
+  if (value === null) {
+    return false;
+  }
+
+  const timestampMs = Date.parse(value);
+  if (!Number.isFinite(timestampMs)) {
+    return false;
+  }
+
+  const ageMs = nowMs - timestampMs;
+  return ageMs >= 0 && ageMs <= maxAgeMs;
+};
+
 export const createAppHttpServerDeps = ({
+  config,
   mqttClient,
   valkey,
   queue,
 }: {
+  config: AppConfig;
   mqttClient: AppHttpMqttClient;
   valkey: AppHttpValkey;
-  queue: GatewayQueue;
+  queue: GatewayCommandQueue;
 }) => ({
   getReadiness: () =>
-    checkReadiness(mqttClient as never, valkey as never, async () => (await valkey.get(lastSuccessKey())) !== null),
+    checkReadiness(mqttClient, valkey, async () =>
+      isRecentIsoTimestamp(
+        await valkey.get(lastSuccessKey()),
+        Date.now(),
+        Math.max(config.poll.fullStateIntervalMs * 2, 60_000),
+      ),
+    ),
   forceDiscovery: async () => {
     await queue.add(GatewayJobName.ForceDiscovery, {}, { priority: JobPriority.Discovery });
   },
   getDevices: () => loadDeviceRegistry(valkey),
 });
 
-export const enqueueStartupGatewayJobs = async (queue: GatewayQueue, config: AppConfig): Promise<void> => {
+export const enqueueStartupGatewayJobs = async (queue: GatewaySchedulerQueue, config: AppConfig): Promise<void> => {
   await queue.add(GatewayJobName.ForceDiscovery, {}, { priority: JobPriority.Discovery });
-  await queue.add(GatewayJobName.PollFullState, {}, {
-    priority: JobPriority.Poll,
-    repeat: { every: config.poll.fullStateIntervalMs },
+  await queue.upsertJobScheduler(GatewayJobName.PollFullState, { every: config.poll.fullStateIntervalMs }, {
+    name: GatewayJobName.PollFullState,
+    data: {},
+    opts: { priority: JobPriority.Poll },
   });
 };
 
@@ -192,7 +223,7 @@ export const createApp = (config: AppConfig, logger: Logger): App => ({
     void enqueueStartupGatewayJobs(gatewayQueue, config);
 
     const httpLogger = logger.child({ module: "http" });
-    const server = createHttpServer(createAppHttpServerDeps({ mqttClient, valkey, queue: gatewayQueue }));
+    const server = createHttpServer(createAppHttpServerDeps({ config, mqttClient, valkey, queue: gatewayQueue }));
 
     server.listen({
       hostname: config.http.host,

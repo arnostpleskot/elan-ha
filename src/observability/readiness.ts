@@ -1,6 +1,3 @@
-import type { Redis } from "ioredis";
-import type { MqttClient } from "mqtt";
-
 export type ReadinessResult = {
   ready: boolean;
   mqtt: boolean;
@@ -8,9 +5,17 @@ export type ReadinessResult = {
   rf003: boolean;
 };
 
+type ReadinessMqtt = {
+  connected: boolean;
+};
+
+type ReadinessValkey = {
+  ping: () => Promise<unknown>;
+};
+
 export const checkReadiness = async (
-  mqtt: MqttClient,
-  valkey: Redis,
+  mqtt: ReadinessMqtt,
+  valkey: ReadinessValkey,
   checkRf003: () => Promise<boolean>,
 ): Promise<ReadinessResult> => {
   const mqttReady = mqtt.connected;
