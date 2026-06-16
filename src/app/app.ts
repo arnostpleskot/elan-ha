@@ -245,6 +245,9 @@ export const createGatewayWorkerDeps = ({
   saveState: async (deviceId, state) => {
     await valkey.set(stateKey(deviceId), JSON.stringify(state));
   },
+  clearDiscovery: async (entity) => {
+    mqttClient.publish(discoveryTopic(config, entity), "", { retain: true });
+  },
   publishDiscovery: async (entities) => {
     publishAvailability(mqttClient, config.mqtt.baseTopic);
     for (const entity of entities) {

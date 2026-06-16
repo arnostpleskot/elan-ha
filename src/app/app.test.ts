@@ -160,6 +160,29 @@ describe("createGatewayWorkerDeps", () => {
       ["inels/switch/inels_09354/state", "ON"],
     ]);
   });
+
+  test("clears retained discovery config for previous entity topic", async () => {
+    const publishes: Array<[string, string, { retain?: boolean }]> = [];
+    const mqttClient = {
+      publish: (topic: string, payload: string, opts?: { retain?: boolean }) => {
+        publishes.push([topic, payload, opts ?? {}]);
+      },
+    };
+    const deps = createGatewayWorkerDeps({
+      config,
+      valkey: { get: async () => null, set: async () => undefined },
+      mqttClient,
+      operations,
+    });
+
+    await deps.clearDiscovery(switchEntity);
+    await deps.clearDiscovery(lightEntity);
+
+    expect(publishes).toEqual([
+      ["homeassistant/switch/inels_09354/config", "", { retain: true }],
+      ["homeassistant/light/inels_47742/config", "", { retain: true }],
+    ]);
+  });
 });
 
 describe("createMqttCommandEnqueuer", () => {

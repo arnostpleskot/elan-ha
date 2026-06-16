@@ -14,6 +14,7 @@ export type GatewayWorkerDeps = {
   loadRegistry: () => Promise<DiscoveredEntity[]>;
   saveRegistry: (entities: DiscoveredEntity[]) => Promise<void>;
   saveState: (deviceId: string, state: GatewayDeviceState) => Promise<void>;
+  clearDiscovery: (entity: DiscoveredEntity) => Promise<void>;
   publishDiscovery: (entities: DiscoveredEntity[]) => Promise<void>;
   publishState: (entity: DiscoveredEntity, state: GatewayDeviceState) => Promise<void>;
   updateLastPoll: () => Promise<void>;
@@ -101,6 +102,7 @@ const parseDeviceStateData = (data: unknown): DeviceStateData => {
 };
 
 const handleDiscovery = async (deps: GatewayWorkerDeps, logger: Logger): Promise<void> => {
+  const previousEntities = await deps.loadRegistry();
   const entities: DiscoveredEntity[] = [];
 
   for (const deviceId of await deps.operations.listDeviceIds()) {
@@ -116,9 +118,26 @@ const handleDiscovery = async (deps: GatewayWorkerDeps, logger: Logger): Promise
     entities.push(entity);
   }
 
+  const staleEntities = findStaleDiscoveryEntities(previousEntities, entities);
+
   await deps.saveRegistry(entities);
+  for (const entity of staleEntities) {
+    await deps.clearDiscovery(entity);
+  }
   await deps.publishDiscovery(entities);
   await deps.updateLastSuccess();
+};
+
+const findStaleDiscoveryEntities = (
+  previousEntities: DiscoveredEntity[],
+  currentEntities: DiscoveredEntity[],
+): DiscoveredEntity[] => {
+  const currentByObjectId = new Map(currentEntities.map((entity) => [entity.objectId, entity]));
+
+  return previousEntities.filter((previousEntity) => {
+    const currentEntity = currentByObjectId.get(previousEntity.objectId);
+    return currentEntity === undefined || currentEntity.kind !== previousEntity.kind;
+  });
 };
 
 const handleSetOutput = async (data: SetOutputData, deps: GatewayWorkerDeps): Promise<void> => {

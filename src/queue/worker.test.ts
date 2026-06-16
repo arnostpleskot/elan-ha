@@ -132,6 +132,65 @@ describe("gateway worker", () => {
     expect(published).toEqual([switchEntity]);
   });
 
+  test("discovery clears removed entities after saving registry and before publishing current discovery", async () => {
+    const calls: string[] = [];
+    const cleared: DiscoveredEntity[] = [];
+    const deps = makeDeps({
+      loadRegistry: async () => [switchEntity],
+      operations: {
+        ...makeDeps().operations,
+        listDeviceIds: async () => [],
+      },
+      saveRegistry: async () => {
+        calls.push("saveRegistry");
+      },
+      clearDiscovery: async (entity: DiscoveredEntity) => {
+        calls.push("clearDiscovery");
+        cleared.push(entity);
+      },
+      publishDiscovery: async () => {
+        calls.push("publishDiscovery");
+      },
+    });
+    createGatewayWorker({ host: "localhost", port: 6379 }, logger, deps);
+
+    await capturedProcessor?.({ name: GatewayJobName.ForceDiscovery, data: {} });
+
+    expect(calls).toEqual(["saveRegistry", "clearDiscovery", "publishDiscovery"]);
+    expect(cleared).toEqual([switchEntity]);
+  });
+
+  test("discovery clears previous entity when object ID remains but kind changes", async () => {
+    const previousLight: DiscoveredEntity = { ...lightEntity, id: "09354", objectId: switchEntity.objectId };
+    const cleared: DiscoveredEntity[] = [];
+    const deps = makeDeps({
+      loadRegistry: async () => [previousLight],
+      clearDiscovery: async (entity: DiscoveredEntity) => {
+        cleared.push(entity);
+      },
+    });
+    createGatewayWorker({ host: "localhost", port: 6379 }, logger, deps);
+
+    await capturedProcessor?.({ name: GatewayJobName.PublishDiscovery, data: {} });
+
+    expect(cleared).toEqual([previousLight]);
+  });
+
+  test("discovery does not clear unchanged entities", async () => {
+    const cleared: DiscoveredEntity[] = [];
+    const deps = makeDeps({
+      loadRegistry: async () => [switchEntity],
+      clearDiscovery: async (entity: DiscoveredEntity) => {
+        cleared.push(entity);
+      },
+    });
+    createGatewayWorker({ host: "localhost", port: 6379 }, logger, deps);
+
+    await capturedProcessor?.({ name: GatewayJobName.PublishDiscovery, data: {} });
+
+    expect(cleared).toEqual([]);
+  });
+
   test("handles set brightness by writing and publishing read-back state", async () => {
     const calls: string[] = [];
     const states: unknown[] = [];
@@ -250,6 +309,7 @@ function makeDeps(overrides: Partial<GatewayWorkerDeps> = {}): GatewayWorkerDeps
     loadRegistry: async () => [switchEntity],
     saveRegistry: async () => {},
     saveState: async () => {},
+    clearDiscovery: async () => {},
     publishDiscovery: async () => {},
     publishState: async () => {},
     updateLastPoll: async () => {},
