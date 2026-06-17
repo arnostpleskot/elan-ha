@@ -84,7 +84,7 @@ Expected schema:
 
 ```yaml
 schema:
-  rf003_base_url: url
+  rf003_base_url: str
   rf003_username: str
   rf003_password: password
   mqtt_discovery_prefix: str
@@ -93,6 +93,8 @@ schema:
   poll_device_state_interval_ms: int
   log_level: list(trace|debug|info|warn|error|fatal)
 ```
+
+Use `str` rather than `url` for `rf003_base_url` because Supervisor accepts text fields with an empty initial default for first install. The bridge runtime still validates `RF003_BASE_URL` as an `http` or `https` URL before starting.
 
 The app package should map these options into the existing environment variables:
 

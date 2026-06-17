@@ -302,7 +302,7 @@ options:
   poll_device_state_interval_ms: 300000
   log_level: "info"
 schema:
-  rf003_base_url: url
+  rf003_base_url: str
   rf003_username: str
   rf003_password: password
   mqtt_discovery_prefix: str
@@ -311,6 +311,8 @@ schema:
   poll_device_state_interval_ms: int
   log_level: list(trace|debug|info|warn|error|fatal)
 ```
+
+Use `str` here so Supervisor accepts the empty first-install default. The bridge runtime still validates `RF003_BASE_URL` as an `http` or `https` URL before starting.
 
 - [ ] **Step 2: Create root Home Assistant `Dockerfile`**
 
