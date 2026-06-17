@@ -1,7 +1,8 @@
 services:
   app:
     build:
-      context: .
+      context: ..
+      dockerfile: standalone/Dockerfile
     image: elan-ha:latest
     restart: unless-stopped
     env_file:
