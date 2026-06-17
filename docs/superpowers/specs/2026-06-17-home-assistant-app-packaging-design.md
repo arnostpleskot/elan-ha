@@ -16,19 +16,28 @@ The app should be installable and testable locally in Home Assistant before any 
 
 ## Packaging Shape
 
-Add a Home Assistant app folder beside the existing standalone runtime:
+Make the repository root the Home Assistant app folder so Supervisor local builds have access to the application source tree, package metadata, lockfile, and app metadata in one Docker build context:
 
 ```text
-home-assistant-app/
-|-- config.yaml
-|-- DOCS.md
-|-- README.md
-|-- CHANGELOG.md
+config.yaml
+DOCS.md
+CHANGELOG.md
+run.sh
+Dockerfile
+
+standalone/
 |-- Dockerfile
-`-- run.sh
+`-- docker-compose.yml
+
+src/
+package.json
+bun.lock
+README.md
 ```
 
-The root `Dockerfile`, `docker-compose.yml`, and `.env` path remain the standalone deployment path. The Home Assistant app folder owns Supervisor metadata, option schema, user documentation, and startup translation from `/data/options.json` plus Supervisor services into bridge environment variables.
+The root `Dockerfile`, `config.yaml`, `DOCS.md`, `CHANGELOG.md`, and `run.sh` are the Home Assistant app package. The `standalone/` directory owns the non-Supervisor Docker image and Compose runtime. `standalone/docker-compose.yml` uses `context: ..` so it can build the application source while keeping standalone-specific Docker behavior separate from the Home Assistant app package.
+
+The root `README.md` remains the repository README, not the Home Assistant app-store intro. Home Assistant app documentation lives in `DOCS.md` and `CHANGELOG.md`; the root README points users to both the Home Assistant app path and the standalone Compose path.
 
 Do not add ingress, a web UI, or a user-facing diagnostics page in this phase. Discovered devices are exposed through MQTT Discovery and appear in Home Assistant's standard device/entity UI.
 
@@ -103,6 +112,8 @@ HTTP_PORT
 
 The app should set `HTTP_HOST=127.0.0.1` and `HTTP_PORT=3000` unless local testing shows Supervisor health behavior requires a different internal bind. The HTTP port is not published to users in this phase.
 
+The standalone Compose runtime still sets `HTTP_HOST=0.0.0.0`, publishes `${APP_HTTP_PORT:-3000}:3000`, and reads `.env` as before.
+
 ## MQTT Service Integration
 
 The Home Assistant app requires the Supervisor MQTT service:
@@ -152,8 +163,8 @@ The app must be testable in Home Assistant before GHCR publishing exists.
 Primary local test path:
 
 1. Install SSH or Samba app on the target Home Assistant system.
-2. Copy `home-assistant-app/` to `/addons/elan-ha`.
-3. Keep `image` omitted or commented out in `config.yaml` so Supervisor builds locally instead of pulling a registry image.
+2. Copy the repository root to `/addons/elan-ha` so `config.yaml`, `Dockerfile`, `run.sh`, `src/`, `package.json`, and `bun.lock` are all in the Supervisor build context.
+3. Keep `image` omitted from `config.yaml` so Supervisor builds locally instead of pulling a registry image.
 4. Reload local apps in Supervisor.
 5. Configure RF-003 options and start the app.
 6. Confirm logs show internal Valkey startup, MQTT service configuration, RF-003 discovery, and MQTT Discovery publishing.
@@ -164,11 +175,12 @@ The Home Assistant devcontainer path can also validate app metadata and Supervis
 
 Add lightweight local validation where possible:
 
-- A script or test checks `home-assistant-app/config.yaml` for required keys.
+- A script or test checks root `config.yaml` for required keys.
 - The validation confirms `services` includes `mqtt:need`.
 - The validation confirms no `ingress`, `webui`, or exposed `ports` are configured.
 - The validation confirms RF-003 password uses `password` schema.
-- The app Dockerfile builds locally with Docker.
+- The root Home Assistant app Dockerfile builds locally with Docker using repository root context.
+- The standalone Dockerfile builds locally with Docker using repository root context.
 - Option-to-environment mapping is testable if implemented in a small script/helper rather than only inline shell.
 
 Local validation cannot replace testing under Home Assistant Supervisor because Supervisor service injection and local app installation are Supervisor behavior.
@@ -177,10 +189,9 @@ Local validation cannot replace testing under Home Assistant Supervisor because 
 
 App documentation should include:
 
-- `home-assistant-app/README.md`: short app-store style introduction.
-- `home-assistant-app/DOCS.md`: configuration fields, MQTT app requirement, RF-003 URL guidance, no-UI behavior, logs, restart rediscovery behavior, and local testing instructions.
-- `home-assistant-app/CHANGELOG.md`: initial entry for the first app package.
-- Root `README.md`: short section pointing to the Home Assistant app package while preserving Docker Compose as the standalone deployment path.
+- Root `README.md`: repository overview, standalone Compose instructions through `standalone/docker-compose.yml`, and Home Assistant local app testing instructions.
+- Root `DOCS.md`: Home Assistant app configuration fields, MQTT app requirement, RF-003 URL guidance, no-UI behavior, logs, restart rediscovery behavior, and local testing instructions.
+- Root `CHANGELOG.md`: initial entry for the first Home Assistant app package.
 
 ## Out Of Scope
 
@@ -192,6 +203,7 @@ App documentation should include:
 - Direct Home Assistant Core API integration.
 - Host networking unless proven necessary by Supervisor testing.
 - Removing or replacing the existing standalone Docker Compose runtime.
+- Duplicating the application source tree under a nested Home Assistant app directory.
 
 ## Open Follow-Up After This Phase
 
