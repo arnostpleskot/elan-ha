@@ -103,6 +103,9 @@ describe("Home Assistant app package", () => {
     expect(compose).toContain("VALKEY_URL: ${VALKEY_URL:-redis://valkey:6379}");
     expect(compose).toContain('"${APP_HTTP_PORT:-3000}:3000"');
     expect(standaloneDockerfile).toContain("FROM oven/bun:1.3.11-alpine AS deps");
+    expect(standaloneDockerfile).toContain(
+      "RUN bun test src/app src/config src/devices src/gateway src/http src/mqtt src/observability src/queue src/storage",
+    );
     expect(standaloneDockerfile).toContain("HEALTHCHECK");
     expect(standaloneDockerfile).toContain('CMD ["bun", "dist/index.js"]');
   });

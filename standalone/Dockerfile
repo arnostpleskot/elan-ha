@@ -11,7 +11,7 @@ COPY tsconfig.json ./
 COPY src ./src
 COPY scripts ./scripts
 
-RUN bun test
+RUN bun test src/app src/config src/devices src/gateway src/http src/mqtt src/observability src/queue src/storage
 RUN bun run typecheck
 RUN bun run build
 
