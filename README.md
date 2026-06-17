@@ -198,6 +198,16 @@ Valkey stores runtime/cache registry, queue metadata, and bridge metadata. RF-00
 
 Mosquitto or another MQTT broker, and Home Assistant, are intentionally external to this repository. Point `MQTT_URL` at the broker you want the bridge to use.
 
+## Home Assistant App Package
+
+This repository also contains a headless Home Assistant Supervisor app package in `home-assistant-app/`.
+
+The app package is for local Supervisor testing before published images exist. It uses Home Assistant's MQTT service, reads RF-003 settings from the Supervisor configuration form, runs an internal ephemeral Valkey instance for BullMQ, and exposes devices through MQTT Discovery. It does not provide an ingress UI.
+
+For local testing, copy `home-assistant-app/` to `/addons/elan-ha` on a Home Assistant system, reload local apps in Supervisor, configure the RF-003 options, and start the app.
+
+The existing `docker-compose.yml` remains the standalone deployment path for non-Supervisor environments and for manual MQTT broker configuration.
+
 ## MQTT Topics
 
 The bridge centralizes MQTT topic construction and uses retained messages where Home Assistant expects them.

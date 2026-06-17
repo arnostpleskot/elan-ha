@@ -72,4 +72,22 @@ describe("Home Assistant app package", () => {
     expect(dockerfile).toContain("COPY --from=builder /app/dist ./dist");
     expect(dockerfile).toContain('CMD ["/run.sh"]');
   });
+
+  test("documents local installation, MQTT dependency, logs, and restart behavior", () => {
+    const readme = readAppFile("README.md");
+    const docs = readAppFile("DOCS.md");
+    const changelog = readAppFile("CHANGELOG.md");
+
+    expect(readme).toContain("iNELS RF-003");
+    expect(readme).toContain("MQTT Discovery");
+
+    expect(docs).toContain("MQTT app is required");
+    expect(docs).toContain("/addons/elan-ha");
+    expect(docs).toContain("Use the RF-003 IP address");
+    expect(docs).toContain("Supervisor logs");
+    expect(docs).toContain("republishes MQTT Discovery");
+
+    expect(changelog).toContain("## 0.1.0");
+    expect(changelog).toContain("Initial local Home Assistant app package");
+  });
 });
