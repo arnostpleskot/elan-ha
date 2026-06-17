@@ -1,0 +1,30 @@
+name: "eLAN RF-003 MQTT Bridge"
+version: "0.1.0"
+slug: "elan_ha"
+description: "Bridge iNELS RF-003 devices to Home Assistant through MQTT Discovery"
+url: "https://github.com/arnostpleskot/elan-ha"
+arch:
+  - aarch64
+  - amd64
+startup: application
+boot: auto
+services:
+  - mqtt:need
+options:
+  rf003_base_url: ""
+  rf003_username: ""
+  rf003_password: ""
+  mqtt_discovery_prefix: "homeassistant"
+  mqtt_base_topic: "inels"
+  poll_full_state_interval_ms: 60000
+  poll_device_state_interval_ms: 300000
+  log_level: "info"
+schema:
+  rf003_base_url: url
+  rf003_username: str
+  rf003_password: password
+  mqtt_discovery_prefix: str
+  mqtt_base_topic: str
+  poll_full_state_interval_ms: int
+  poll_device_state_interval_ms: int
+  log_level: list(trace|debug|info|warn|error|fatal)
