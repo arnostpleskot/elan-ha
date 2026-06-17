@@ -2,23 +2,12 @@ import type { EntityCapability, GatewayDeviceState } from "../devices/types";
 
 const clamp = (value: number, min: number, max: number): number => Math.min(Math.max(value, min), max);
 
-export const rf003BrightnessToHa = (brightness: number): number => {
+export const normalizeRf003Brightness = (brightness: number): number => {
   if (!Number.isFinite(brightness)) {
     throw new Error("Invalid RF-003 brightness");
   }
 
-  return Math.round((clamp(brightness, 0, 100) / 100) * 255);
-};
-
-export const haBrightnessToRf003 = (brightness: number): number => {
-  if (!Number.isFinite(brightness)) {
-    throw new Error("Invalid Home Assistant brightness");
-  }
-
-  const clampedBrightness = clamp(brightness, 0, 255);
-  const convertedBrightness = Math.round((clampedBrightness / 255) * 100);
-
-  return clampedBrightness > 0 ? Math.max(convertedBrightness, 1) : 0;
+  return Math.round(clamp(brightness, 0, 100));
 };
 
 export const buildMqttStatePayload = ({
@@ -54,5 +43,7 @@ export const buildMqttStatePayload = ({
     throw new Error("Invalid light state: brightness");
   }
 
-  return JSON.stringify({ state: state.brightness > 0 ? "ON" : "OFF", brightness: rf003BrightnessToHa(state.brightness) });
+  const brightness = normalizeRf003Brightness(state.brightness);
+
+  return JSON.stringify({ state: brightness > 0 ? "ON" : "OFF", brightness });
 };

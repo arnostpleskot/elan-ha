@@ -194,13 +194,13 @@ describe("createMqttClient", () => {
     expect(commands).toEqual([{ kind: "fan", objectId: "inels_09355", state: "OFF" }]);
   });
 
-  test("dispatches light brightness command with RF-003 brightness", () => {
+  test("dispatches light brightness command with RF-003 native brightness", () => {
     const commands: unknown[] = [];
     createMqttClient(config, logger, async (command) => {
       commands.push(command);
     });
 
-    handlers.get("message")?.("inels/light/inels_47742/set", Buffer.from(JSON.stringify({ brightness: 128 })));
+    handlers.get("message")?.("inels/light/inels_47742/set", Buffer.from(JSON.stringify({ brightness: 50 })));
 
     expect(commands).toEqual([{ kind: "light", objectId: "inels_47742", brightness: 50 }]);
   });
@@ -283,7 +283,7 @@ describe("createMqttClient", () => {
       commands.push(command);
     });
 
-    handlers.get("message")?.("inels/light/inels_47742/set", Buffer.from(JSON.stringify({ brightness: 256 })));
+    handlers.get("message")?.("inels/light/inels_47742/set", Buffer.from(JSON.stringify({ brightness: 101 })));
 
     expect(commands).toEqual([]);
   });

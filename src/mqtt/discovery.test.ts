@@ -16,7 +16,9 @@ describe("MQTT discovery", () => {
       objectId: "inels_9354",
     };
 
-    expect(buildDiscoveryPayload({ baseTopic: "inels", bridgeName: "iNELS Bridge", entity })).toMatchObject({
+    const payload = buildDiscoveryPayload({ baseTopic: "inels", bridgeName: "iNELS Bridge", entity });
+
+    expect(payload).toMatchObject({
       name: "Strop - Chodba",
       unique_id: "inels_9354",
       object_id: "inels_9354",
@@ -27,6 +29,7 @@ describe("MQTT discovery", () => {
       payload_not_available: "offline",
       device: { identifiers: ["inels_9354"], model: "RFSA-66M", name: "Strop - Chodba" },
     });
+    expect(payload.device).not.toHaveProperty("via_device");
   });
 
   test("builds Home Assistant dimmable light discovery payload", () => {
@@ -44,7 +47,9 @@ describe("MQTT discovery", () => {
       brightness: { min: 0, max: 100, step: 10 },
     };
 
-    expect(buildDiscoveryPayload({ baseTopic: "inels", bridgeName: "iNELS Bridge", entity })).toMatchObject({
+    const payload = buildDiscoveryPayload({ baseTopic: "inels", bridgeName: "iNELS Bridge", entity });
+
+    expect(payload).toMatchObject({
       name: "Strop - Loznice",
       unique_id: "inels_47742",
       object_id: "inels_47742",
@@ -55,9 +60,10 @@ describe("MQTT discovery", () => {
       payload_not_available: "offline",
       schema: "json",
       brightness: true,
-      brightness_scale: 255,
+      brightness_scale: 100,
       device: { identifiers: ["inels_47742"], model: "RFDA-71B", name: "Strop - Loznice" },
     });
+    expect(payload.device).not.toHaveProperty("via_device");
   });
 
   test("builds Home Assistant on/off light discovery payload", () => {
@@ -90,6 +96,7 @@ describe("MQTT discovery", () => {
       state_off: "OFF",
       device: { identifiers: ["inels_09356"], model: "RFSA-66M", name: "Hall Light" },
     });
+    expect(payload.device).not.toHaveProperty("via_device");
     expect(payload).not.toHaveProperty("schema");
     expect(payload).not.toHaveProperty("brightness");
     expect(payload).not.toHaveProperty("brightness_scale");
@@ -108,7 +115,9 @@ describe("MQTT discovery", () => {
       objectId: "inels_09355",
     };
 
-    expect(buildDiscoveryPayload({ baseTopic: "inels", bridgeName: "iNELS Bridge", entity })).toMatchObject({
+    const payload = buildDiscoveryPayload({ baseTopic: "inels", bridgeName: "iNELS Bridge", entity });
+
+    expect(payload).toMatchObject({
       name: "Bathroom Fan",
       unique_id: "inels_09355",
       object_id: "inels_09355",
@@ -123,5 +132,6 @@ describe("MQTT discovery", () => {
       state_off: "OFF",
       device: { identifiers: ["inels_09355"], model: "RFSA-66M", name: "Bathroom Fan" },
     });
+    expect(payload.device).not.toHaveProperty("via_device");
   });
 });

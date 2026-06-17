@@ -5,7 +5,6 @@ import {
   fanStateTopic,
   lightCommandTopic,
   lightStateTopic,
-  normalizeTopicSegment,
   switchCommandTopic,
   switchStateTopic,
 } from "./topics";
@@ -16,15 +15,14 @@ type DiscoveryInput = {
   entity: DiscoveredEntity;
 };
 
-const deviceBlock = (bridgeName: string, entity: DiscoveredEntity) => ({
+const deviceBlock = (entity: DiscoveredEntity) => ({
   identifiers: [entity.objectId],
   manufacturer: "ELKO EP" as const,
   model: entity.productType,
   name: entity.name,
-  via_device: normalizeTopicSegment(bridgeName),
 });
 
-export const buildDiscoveryPayload = ({ baseTopic, bridgeName, entity }: DiscoveryInput) => {
+export const buildDiscoveryPayload = ({ baseTopic, entity }: DiscoveryInput) => {
   if (entity.kind === "switch") {
     return {
       name: entity.name,
@@ -39,7 +37,7 @@ export const buildDiscoveryPayload = ({ baseTopic, bridgeName, entity }: Discove
       payload_off: "OFF" as const,
       state_on: "ON" as const,
       state_off: "OFF" as const,
-      device: deviceBlock(bridgeName, entity),
+      device: deviceBlock(entity),
     };
   }
 
@@ -57,7 +55,7 @@ export const buildDiscoveryPayload = ({ baseTopic, bridgeName, entity }: Discove
       payload_off: "OFF" as const,
       state_on: "ON" as const,
       state_off: "OFF" as const,
-      device: deviceBlock(bridgeName, entity),
+      device: deviceBlock(entity),
     };
   }
 
@@ -75,7 +73,7 @@ export const buildDiscoveryPayload = ({ baseTopic, bridgeName, entity }: Discove
       payload_off: "OFF" as const,
       state_on: "ON" as const,
       state_off: "OFF" as const,
-      device: deviceBlock(bridgeName, entity),
+      device: deviceBlock(entity),
     };
   }
 
@@ -90,7 +88,7 @@ export const buildDiscoveryPayload = ({ baseTopic, bridgeName, entity }: Discove
     payload_not_available: "offline" as const,
     schema: "json" as const,
     brightness: true,
-    brightness_scale: 255,
-    device: deviceBlock(bridgeName, entity),
+    brightness_scale: entity.brightness.max,
+    device: deviceBlock(entity),
   };
 };

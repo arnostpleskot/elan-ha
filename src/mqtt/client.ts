@@ -1,7 +1,6 @@
 import mqtt, { type IClientOptions, type IClientPublishOptions, type MqttClient, type PacketCallback } from "mqtt";
 import type { Logger } from "pino";
 import type { AppConfig } from "../config/env";
-import { haBrightnessToRf003 } from "./state";
 import { availabilityTopic, fanCommandTopic, lightCommandTopic, switchCommandTopic } from "./topics";
 
 export type MqttCommand =
@@ -105,12 +104,12 @@ const parseLightCommandPayload = (payload: string): { brightness: number } | und
       typeof command.brightness !== "number" ||
       !Number.isInteger(command.brightness) ||
       command.brightness < 0 ||
-      command.brightness > 255
+      command.brightness > 100
     ) {
       return undefined;
     }
 
-    return { brightness: haBrightnessToRf003(command.brightness) };
+    return { brightness: command.brightness };
   }
 
   if (command.state === "ON") {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildMqttStatePayload, haBrightnessToRf003, rf003BrightnessToHa } from "./state";
+import { buildMqttStatePayload, normalizeRf003Brightness } from "./state";
 
 describe("MQTT state conversion", () => {
   test("builds switch state payloads", () => {
@@ -23,9 +23,9 @@ describe("MQTT state conversion", () => {
     );
   });
 
-  test("builds light state payloads with converted brightness", () => {
+  test("builds light state payloads with RF-003 native brightness", () => {
     expect(buildMqttStatePayload({ kind: "light", capability: "brightness", state: { brightness: 50 } })).toBe(
-      JSON.stringify({ state: "ON", brightness: 128 }),
+      JSON.stringify({ state: "ON", brightness: 50 }),
     );
   });
 
@@ -45,23 +45,18 @@ describe("MQTT state conversion", () => {
     ).toThrow("Invalid light state: brightness");
   });
 
-  test("converts brightness boundaries", () => {
-    expect(rf003BrightnessToHa(0)).toBe(0);
-    expect(rf003BrightnessToHa(100)).toBe(255);
-    expect(haBrightnessToRf003(0)).toBe(0);
-    expect(haBrightnessToRf003(255)).toBe(100);
+  test("normalizes RF-003 brightness boundaries", () => {
+    expect(normalizeRf003Brightness(0)).toBe(0);
+    expect(normalizeRf003Brightness(100)).toBe(100);
   });
 
-  test("clamps brightness conversion inputs", () => {
-    expect(rf003BrightnessToHa(-1)).toBe(0);
-    expect(rf003BrightnessToHa(101)).toBe(255);
-    expect(haBrightnessToRf003(-1)).toBe(0);
-    expect(haBrightnessToRf003(256)).toBe(100);
-    expect(haBrightnessToRf003(1)).toBe(1);
+  test("clamps RF-003 brightness inputs", () => {
+    expect(normalizeRf003Brightness(-1)).toBe(0);
+    expect(normalizeRf003Brightness(101)).toBe(100);
+    expect(normalizeRf003Brightness(1)).toBe(1);
   });
 
   test("throws when brightness conversion input is not finite", () => {
-    expect(() => rf003BrightnessToHa(Number.NaN)).toThrow("Invalid RF-003 brightness");
-    expect(() => haBrightnessToRf003(Number.NaN)).toThrow("Invalid Home Assistant brightness");
+    expect(() => normalizeRf003Brightness(Number.NaN)).toThrow("Invalid RF-003 brightness");
   });
 });
