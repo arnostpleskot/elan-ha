@@ -108,10 +108,12 @@ describe("Home Assistant app package", () => {
   });
 
   test("documents local installation, MQTT dependency, logs, and restart behavior", () => {
+    const agents = readRepoFile("AGENTS.md");
     const readme = readRepoFile("README.md");
     const docs = readRepoFile("DOCS.md");
     const changelog = readRepoFile("CHANGELOG.md");
 
+    expect(agents).toContain("docker compose -f standalone/docker-compose.yml up --build");
     expect(readme).toContain("standalone/docker-compose.yml");
     expect(readme).toContain("standalone/Dockerfile");
     expect(readme).toContain("/addons/elan-ha");

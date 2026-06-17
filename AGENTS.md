@@ -118,10 +118,10 @@ Expected commands once `package.json` exists:
 - Format: `bun run format`
 - Build: `bun run build`
 - Create local environment file: `cp .env.example .env`
-- Start Docker development runtime: `docker compose up --build`
-- Stop Docker development runtime: `docker compose down`
+- Start Docker development runtime: `docker compose -f standalone/docker-compose.yml up --build`
+- Stop Docker development runtime: `docker compose -f standalone/docker-compose.yml down`
 
-For Docker Compose, `APP_HTTP_PORT` controls the host port exposed by Compose while the app container listens on port `3000` internally.
+For the standalone Docker Compose file, `APP_HTTP_PORT` controls the host port exposed by Compose while the app container listens on port `3000` internally.
 
 If these scripts do not exist yet, add them when creating the Bun project. Do not document commands that cannot be run unless they are clearly marked as target commands.
 
