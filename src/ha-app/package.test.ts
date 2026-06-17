@@ -9,13 +9,13 @@ const readRepoFile = (path: string): string => readFileSync(join(repoRoot, path)
 describe("Home Assistant app package", () => {
   test("contains root Home Assistant app files", () => {
     for (const path of ["config.yaml", "Dockerfile", "run.sh", "DOCS.md", "CHANGELOG.md"]) {
-      expect(existsSync(join(repoRoot, path))).toBe(true);
+      expect(existsSync(join(repoRoot, path)), path).toBe(true);
     }
   });
 
   test("contains standalone Docker runtime files", () => {
     for (const path of ["standalone/Dockerfile", "standalone/docker-compose.yml"]) {
-      expect(existsSync(join(repoRoot, path))).toBe(true);
+      expect(existsSync(join(repoRoot, path)), path).toBe(true);
     }
   });
 
@@ -62,6 +62,20 @@ describe("Home Assistant app package", () => {
     expect(runScript).toContain('bashio::services mqtt "username"');
     expect(runScript).toContain('bashio::services mqtt "password"');
     expect(runScript).toContain('export RF003_BASE_URL="$(bashio::config \'rf003_base_url\')"');
+    expect(runScript).toContain('export RF003_USERNAME="$(bashio::config \'rf003_username\')"');
+    expect(runScript).toContain('export RF003_PASSWORD="$(bashio::config \'rf003_password\')"');
+    expect(runScript).toContain('export MQTT_URL="mqtt://${MQTT_HOST}:${MQTT_PORT}"');
+    expect(runScript).toContain('export MQTT_DISCOVERY_PREFIX="$(bashio::config \'mqtt_discovery_prefix\')"');
+    expect(runScript).toContain('export MQTT_BASE_TOPIC="$(bashio::config \'mqtt_base_topic\')"');
+    expect(runScript).toContain(
+      'export POLL_FULL_STATE_INTERVAL_MS="$(bashio::config \'poll_full_state_interval_ms\')"',
+    );
+    expect(runScript).toContain(
+      'export POLL_DEVICE_STATE_INTERVAL_MS="$(bashio::config \'poll_device_state_interval_ms\')"',
+    );
+    expect(runScript).toContain('export LOG_LEVEL="$(bashio::config \'log_level\')"');
+    expect(runScript).toContain('export MQTT_USERNAME="${MQTT_USERNAME_VALUE}"');
+    expect(runScript).toContain('export MQTT_PASSWORD="${MQTT_PASSWORD_VALUE}"');
     expect(runScript).toContain('export HTTP_HOST="127.0.0.1"');
     expect(runScript).toContain('export HTTP_PORT="3000"');
     expect(runScript).toContain("bun /app/dist/index.js");
