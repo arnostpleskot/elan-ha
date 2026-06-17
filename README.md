@@ -105,10 +105,10 @@ Before sharing logs, remove local hostnames/IP addresses, credentials, cookies, 
    MQTT_BASE_TOPIC=inels
    ```
 
-3. Start the default runtime:
+3. Start the standalone runtime:
 
    ```bash
-   docker compose up --build
+   docker compose -f standalone/docker-compose.yml up --build
    ```
 
 4. Check the bridge:
@@ -175,7 +175,7 @@ Configuration is read from environment variables. Required deployment-specific v
 
 ## Docker Runtime
 
-The default `docker-compose.yml` runs the app and an ephemeral Valkey service:
+The standalone `standalone/docker-compose.yml` runs the app and an ephemeral Valkey service:
 
 - app container built from the hardened multi-stage `Dockerfile`
 - Valkey service with RDB snapshots and append-only persistence disabled
@@ -185,13 +185,13 @@ The default `docker-compose.yml` runs the app and an ephemeral Valkey service:
 Start it with:
 
 ```bash
-docker compose up --build
+docker compose -f standalone/docker-compose.yml up --build
 ```
 
 Stop it with:
 
 ```bash
-docker compose down
+docker compose -f standalone/docker-compose.yml down
 ```
 
 Valkey stores runtime/cache registry, queue metadata, and bridge metadata. RF-003 remains the durable source of truth for device inventory and state. If Valkey is recreated, the bridge queues forced discovery on startup and rebuilds the device registry from RF-003. Home Assistant remapping should not be required as long as RF-003 device IDs and MQTT Discovery identifiers remain stable, but discovery and state updates may be delayed until RF-003 rediscovery succeeds.
@@ -200,13 +200,13 @@ Mosquitto or another MQTT broker, and Home Assistant, are intentionally external
 
 ## Home Assistant App Package
 
-This repository also contains a headless Home Assistant Supervisor app package in `home-assistant-app/`.
+The repository root is also a headless Home Assistant Supervisor app package for local testing before published images exist.
 
-The app package is for local Supervisor testing before published images exist. It uses Home Assistant's MQTT service, reads RF-003 settings from the Supervisor configuration form, runs an internal ephemeral Valkey instance for BullMQ, and exposes devices through MQTT Discovery. It does not provide an ingress UI.
+The app uses Home Assistant's MQTT service, reads RF-003 settings from the Supervisor configuration form, runs an internal ephemeral Valkey instance for BullMQ, and exposes devices through MQTT Discovery. It does not provide an ingress UI.
 
-For local testing, copy `home-assistant-app/` to `/addons/elan-ha` on a Home Assistant system, reload local apps in Supervisor, configure the RF-003 options, and start the app.
+For local testing, copy the repository root to `/addons/elan-ha` on a Home Assistant system, reload local apps in Supervisor, configure the RF-003 options, and start the app.
 
-The existing `docker-compose.yml` remains the standalone deployment path for non-Supervisor environments and for manual MQTT broker configuration.
+The standalone Docker Compose deployment remains available through `standalone/docker-compose.yml` for non-Supervisor environments and manual MQTT broker configuration.
 
 ## MQTT Topics
 
