@@ -43,16 +43,38 @@ Discovery jobs
 
 This avoids RF gateway overload, cookie/session races, and overlapping RF transmissions.
 
-## Supported Entities
+## Supported Devices
 
-| RF-003 capability and type | Home Assistant entity | MQTT payload |
+The bridge supports RF-003-discovered outputs that expose one of the action/state shapes below.
+
+| RF-003 product/type | Required RF-003 shape | Home Assistant entity | MQTT payload |
 | --- | --- | --- |
-| Boolean `on` state/action with RF-003 type `light` or `lamp` | On/off light | `ON` / `OFF` |
-| Boolean `on` state/action with RF-003 type `ventilation` | Fan | `ON` / `OFF` |
-| Boolean `on` state/action with unknown or missing RF-003 type | Switch | `ON` / `OFF` |
-| Integer `brightness` state/action with RF-003 type `dimmed light`, `light`, `lamp`, unknown, or missing | Dimmable light | JSON state with HA brightness scale `0-255` |
+| RFSA-66M or compatible relay output with RF-003 type `light` or `lamp` | Primary action `on`, action info `on.type = bool`, state `on = true/false` | On/off light | `ON` / `OFF` |
+| RFSA-66M or compatible relay output with RF-003 type `ventilation` | Primary action `on`, action info `on.type = bool`, state `on = true/false` | Fan | `ON` / `OFF` |
+| Relay-like output with unknown or missing RF-003 type | Primary action `on`, action info `on.type = bool`, state `on = true/false` | Switch | `ON` / `OFF` |
+| RFDA-71B or compatible dimmer with RF-003 type `dimmed light`, `light`, `lamp`, unknown, or missing | Primary action `brightness`, action info `brightness.type = int`, state `brightness = number/null` | Dimmable light | JSON state with RF-003-native brightness scale, currently `0-100` |
 
 Unsupported RF-003 devices are ignored until support is implemented.
+
+### Adding Support For More RF-003 Devices
+
+If RF-003 exposes a device that the bridge logs as unsupported, [open a GitHub issue](https://github.com/arnostpleskot/elan-ha/issues/new/choose) with the unsupported-device warning from startup or forced discovery.
+
+To produce the log entry:
+
+```bash
+curl -X POST http://localhost:3000/discovery/force
+```
+
+Then collect the log line with this message:
+
+```text
+unsupported gateway device ignored
+```
+
+The warning includes `deviceId`, the full sanitized RF-003 detail payload from `GET /api/devices/:id`, and the state payload from `GET /api/devices/:id/state`. That should include the device type, product type, actions info, primary actions, secondary actions when RF-003 provides them, settings, and any unusual state shape needed to design support.
+
+Before sharing logs, remove local hostnames/IP addresses, credentials, cookies, and any room/device names you do not want public. Do not include `.env` contents.
 
 ## Requirements
 
@@ -97,6 +119,34 @@ Unsupported RF-003 devices are ignored until support is implemented.
    ```
 
 Home Assistant should discover supported RF-003 devices through MQTT Discovery after the bridge starts and completes discovery.
+
+## Device Lifecycle
+
+RF-003 remains the source of truth for device inventory and state. The bridge keeps a runtime/cache registry in Valkey so command routing and polling can use the last discovered supported devices.
+
+Discovery runs in these cases:
+
+- On bridge startup, the app queues `discovery.force` once.
+- When `POST /discovery/force` is called, the app queues `discovery.force` on demand.
+
+Discovery does not currently run on a periodic timer. Periodic jobs poll state for the already discovered registry; they do not search RF-003 for new devices.
+
+When discovery runs, the bridge:
+
+1. Reads the RF-003 device list.
+2. Reads each RF-003 device detail and initial state through the serialized gateway queue.
+3. Classifies supported devices as Home Assistant switches, lights, dimmable lights, or fans.
+4. Saves the supported registry in Valkey.
+5. Clears retained MQTT Discovery configs for stale entities that disappeared or changed domain/object ID.
+6. Publishes retained MQTT Discovery configs for the current supported entities.
+
+If you add, remove, rename, or reclassify a device in eLAN/RF-003, trigger rediscovery with:
+
+```bash
+curl -X POST http://localhost:3000/discovery/force
+```
+
+Restarting Docker also works because startup queues forced discovery, but the HTTP endpoint is faster and does not interrupt MQTT, Valkey, or the HTTP server. Home Assistant should update existing entities when the MQTT Discovery topic and `unique_id` stay the same. New RF-003 devices appear after Home Assistant receives the new retained discovery config.
 
 ## Configuration
 
@@ -167,7 +217,7 @@ inels/fan/<object_id>/set
 inels/status
 ```
 
-Discovery messages are retained. State is published after successful RF-003 reads or confirmed writes.
+Discovery messages are retained. They are published after startup discovery and forced discovery. State is published after successful RF-003 reads or confirmed writes.
 
 ## HTTP API
 
