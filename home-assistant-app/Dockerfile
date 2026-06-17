@@ -10,6 +10,7 @@ FROM deps AS builder
 COPY tsconfig.json ./
 COPY src ./src
 COPY scripts ./scripts
+COPY home-assistant-app ./home-assistant-app
 
 RUN bun test
 RUN bun run typecheck
