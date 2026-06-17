@@ -113,6 +113,7 @@ describe("Home Assistant app package", () => {
     const changelog = readRepoFile("CHANGELOG.md");
 
     expect(readme).toContain("standalone/docker-compose.yml");
+    expect(readme).toContain("standalone/Dockerfile");
     expect(readme).toContain("/addons/elan-ha");
     expect(readme).toContain("MQTT Discovery");
 

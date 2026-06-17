@@ -177,7 +177,7 @@ Configuration is read from environment variables. Required deployment-specific v
 
 The standalone `standalone/docker-compose.yml` runs the app and an ephemeral Valkey service:
 
-- app container built from the hardened multi-stage `Dockerfile`
+- app container built from `standalone/Dockerfile`
 - Valkey service with RDB snapshots and append-only persistence disabled
 - no Valkey data volume; RF-003 discovery rebuilds the registry after restart
 - `restart: unless-stopped` for app and Valkey
