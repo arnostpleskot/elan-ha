@@ -47,6 +47,7 @@ describe("Home Assistant app package", () => {
     expect(config).toContain("  poll_full_state_interval_ms: 60000");
     expect(config).toContain("  poll_device_state_interval_ms: 300000");
     expect(config).toContain('  log_level: "info"');
+    expect(config).toContain("  rf003_base_url: str");
     expect(config).toContain("  rf003_password: password");
     expect(config).toContain("  log_level: list(trace|debug|info|warn|error|fatal)");
   });
@@ -124,6 +125,7 @@ describe("Home Assistant app package", () => {
 
     expect(docs).toContain("MQTT app is required");
     expect(docs).toContain("/addons/elan-ha");
+    expect(docs).toContain("must be a valid `http://` or `https://` URL");
     expect(docs).toContain("Use the RF-003 IP address");
     expect(docs).toContain("Supervisor logs");
     expect(docs).toContain("republishes MQTT Discovery");

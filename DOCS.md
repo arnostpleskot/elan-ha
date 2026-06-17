@@ -10,7 +10,7 @@
 
 | Option | Description |
 | --- | --- |
-| `rf003_base_url` | RF-003 gateway URL, for example `http://192.168.1.50`. |
+| `rf003_base_url` | RF-003 gateway URL, for example `http://192.168.1.50`. This must be a valid `http://` or `https://` URL. |
 | `rf003_username` | RF-003 username. |
 | `rf003_password` | RF-003 password. |
 | `mqtt_discovery_prefix` | MQTT Discovery prefix. Keep `homeassistant` unless your Home Assistant MQTT integration uses a different prefix. |
