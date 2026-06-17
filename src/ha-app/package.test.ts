@@ -87,7 +87,7 @@ describe("Home Assistant app package", () => {
     expect(dockerfile).toContain("FROM oven/bun:1.3.11-alpine AS deps");
     expect(dockerfile).toContain("FROM ghcr.io/home-assistant/base:3.22");
     expect(dockerfile).toContain("COPY src ./src");
-    expect(dockerfile).toContain("COPY config.yaml DOCS.md CHANGELOG.md run.sh ./");
+    expect(dockerfile).toContain("COPY config.yaml run.sh ./");
     expect(dockerfile).toContain("io.hass.type=\"app\"");
     expect(dockerfile).toContain("apk add --no-cache ca-certificates libstdc++ valkey");
     expect(dockerfile).toContain("COPY --from=builder /app/dist ./dist");

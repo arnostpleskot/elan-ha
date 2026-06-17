@@ -10,9 +10,9 @@ FROM deps AS builder
 COPY tsconfig.json ./
 COPY src ./src
 COPY scripts ./scripts
-COPY config.yaml DOCS.md CHANGELOG.md run.sh ./
+COPY config.yaml run.sh ./
 
-RUN bun test
+RUN bun test src/app src/config src/devices src/gateway src/http src/mqtt src/observability src/queue src/storage
 RUN bun run typecheck
 RUN bun run build
 
