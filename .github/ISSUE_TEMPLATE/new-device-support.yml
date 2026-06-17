@@ -1,0 +1,70 @@
+name: Add support for a new RF-003 device
+description: Request support for an RF-003/eLAN device that elan-ha currently logs as unsupported.
+title: "Add support for RF-003 device: "
+labels:
+  - device-support
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form when `elan-ha` logs `unsupported gateway device ignored` during startup or forced discovery.
+
+        Before submitting, remove credentials, cookies, hostnames, IP addresses, and any room/device names you do not want public. Do not paste `.env` contents.
+
+  - type: dropdown
+    id: expected-ha-entity
+    attributes:
+      label: Expected Home Assistant entity type
+      description: Choose the entity type you expect this RF-003 device to become.
+      options:
+        - switch
+        - light
+        - dimmable light
+        - fan
+        - cover
+        - sensor
+        - binary sensor
+        - other / not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: unsupported-log
+    attributes:
+      label: Unsupported-device warning log
+      description: Paste the full sanitized JSON log line containing `unsupported gateway device ignored`.
+      render: json
+      placeholder: |
+        {"level":40,"module":"queue","deviceId":"...","detail":{...},"state":{...},"msg":"unsupported gateway device ignored"}
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected behavior
+      description: Describe how this device should behave in Home Assistant and which controls or state values matter.
+      placeholder: It should appear as a cover with open/close/stop, or as a sensor showing temperature, etc.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: sanitization
+    attributes:
+      label: Log sanitization checklist
+      options:
+        - label: I removed credentials, cookies, tokens, and `.env` contents.
+          required: true
+        - label: I removed or replaced private hostnames and IP addresses.
+          required: true
+        - label: I removed or replaced private room/device names I do not want public.
+          required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional notes
+      description: Add screenshots, eLAN context, or links to device documentation if helpful.
+    validations:
+      required: false
