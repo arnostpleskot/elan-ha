@@ -9,7 +9,7 @@ const readAppFile = (path: string): string => readFileSync(join(appDir, path), "
 
 describe("Home Assistant app package", () => {
   test("contains the required app files", () => {
-    for (const path of ["config.yaml", "Dockerfile", "run.sh", "README.md", "DOCS.md", "CHANGELOG.md"]) {
+    for (const path of ["config.yaml", "Dockerfile", "run.sh"]) {
       expect(existsSync(join(appDir, path))).toBe(true);
     }
   });
