@@ -6,7 +6,7 @@ services:
     image: elan-ha:latest
     restart: unless-stopped
     env_file:
-      - path: .env
+      - path: ../.env
         required: false
     environment:
       VALKEY_URL: ${VALKEY_URL:-redis://valkey:6379}
