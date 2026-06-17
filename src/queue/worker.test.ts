@@ -138,6 +138,46 @@ describe("gateway worker", () => {
     expect(published).toEqual([switchEntity]);
   });
 
+  test("discovery warning includes unsupported RF-003 detail and state", async () => {
+    const warns: unknown[][] = [];
+    const unsupportedDetail: GatewayDeviceDetail = {
+      "device info": { label: "Unsupported", "product type": "Other", type: "sensor", address: 99999 },
+      "actions info": {
+        value: { type: "int", min: 0, max: 1, step: 1 },
+        mode: { type: null },
+      },
+      "primary actions": ["value"],
+    };
+    const unsupportedState = { value: 1, ternary: "maybe" };
+    const testLogger = {
+      child: () => ({
+        info: () => {},
+        warn: (...args: unknown[]) => warns.push(args),
+        error: () => {},
+        debug: () => {},
+      }),
+    } as unknown as Logger;
+    const deps = makeDeps({
+      operations: {
+        ...makeDeps().operations,
+        listDeviceIds: async () => ["99999"],
+        getDeviceDetail: async () => unsupportedDetail,
+        getDeviceState: async () => unsupportedState,
+      },
+      loadRegistry: async () => [],
+    });
+    createGatewayWorker({ host: "localhost", port: 6379 }, testLogger, deps);
+
+    await capturedProcessor?.({ name: GatewayJobName.ForceDiscovery, data: {} });
+
+    expect(warns).toEqual([
+      [
+        { deviceId: "99999", detail: unsupportedDetail, state: unsupportedState },
+        "unsupported gateway device ignored",
+      ],
+    ]);
+  });
+
   test("discovery clears removed entities after saving registry and before publishing current discovery", async () => {
     const calls: string[] = [];
     const cleared: DiscoveredEntity[] = [];

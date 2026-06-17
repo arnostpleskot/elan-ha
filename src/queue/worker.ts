@@ -114,7 +114,7 @@ const handleDiscovery = async (deps: GatewayWorkerDeps, logger: Logger): Promise
     const entity = classifyGatewayDevice({ id: deviceId, detail, state });
 
     if (entity === undefined) {
-      logger.warn({ deviceId }, "unsupported gateway device ignored");
+      logger.warn({ deviceId, detail, state }, "unsupported gateway device ignored");
       continue;
     }
 
