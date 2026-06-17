@@ -2,130 +2,78 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a locally testable, headless Home Assistant Supervisor app package for `elan-ha` while preserving the existing standalone Docker Compose deployment.
+**Goal:** Add a locally testable, headless Home Assistant Supervisor app package at the repository root while preserving standalone Docker Compose deployment under `standalone/`.
 
-**Architecture:** Add a `home-assistant-app/` packaging folder that builds the existing bridge into a Supervisor app container. The app container runs an internal loopback-only ephemeral Valkey process plus the bridge, reads RF-003 settings from `/data/options.json`, and reads MQTT service credentials from Home Assistant's `mqtt:need` service via Bashio. Existing root Docker Compose remains the manual/standalone deployment path.
+**Architecture:** The repository root becomes the Home Assistant app build context, with root `config.yaml`, `DOCS.md`, `CHANGELOG.md`, `run.sh`, and `Dockerfile`. Standalone deployment moves to `standalone/Dockerfile` and `standalone/docker-compose.yml`, using `context: ..` so it can build the same source tree. The Home Assistant app runs internal loopback-only ephemeral Valkey and consumes the Supervisor `mqtt:need` service through Bashio.
 
-**Tech Stack:** Bun, TypeScript, Docker, Home Assistant base image, Bashio, Valkey, MQTT service discovery.
+**Tech Stack:** Bun, TypeScript, Docker, Docker Compose, Home Assistant base image, Bashio, Valkey, MQTT service discovery.
 
 ---
 
+## Current Branch State
+
+This revised plan supersedes the earlier nested `home-assistant-app/` plan.
+
+Already completed and retained:
+
+- `src/config/env.ts` accepts `trace`, `debug`, `info`, `warn`, `error`, and `fatal` log levels.
+- `src/config/env.test.ts` covers those log levels.
+
+Remove or relocate earlier nested package artifacts during this revised implementation:
+
+- Remove `home-assistant-app/` after its useful content is moved to root or standalone files.
+- Update `src/ha-app/package.test.ts` so it validates the root HA app package and `standalone/` runtime instead of `home-assistant-app/`.
+
 ## File Structure
 
-- Modify `src/config/env.ts`: extend accepted log levels to include Pino's `trace` and `fatal`, matching the Home Assistant app option schema.
-- Modify `src/config/env.test.ts`: add failing coverage for `trace` and `fatal` log levels.
-- Create `src/ha-app/package.test.ts`: static validation for the Home Assistant app package files and security posture.
-- Create `home-assistant-app/config.yaml`: Supervisor app metadata, options, schema, and `mqtt:need` service declaration.
-- Create `home-assistant-app/Dockerfile`: local-buildable Supervisor app image that includes Bun runtime, production dependencies, built app, Valkey, and `run.sh`.
-- Create `home-assistant-app/run.sh`: Bashio startup script that starts internal Valkey, maps Supervisor options/services to environment variables, and starts the bridge.
-- Create `home-assistant-app/README.md`: short app-store style introduction.
-- Create `home-assistant-app/DOCS.md`: user configuration, local testing, logs, MQTT service, RF-003 URL, and restart behavior documentation.
-- Create `home-assistant-app/CHANGELOG.md`: initial app package changelog.
-- Modify `README.md`: add a short Home Assistant app packaging section while preserving Docker Compose as standalone deployment.
+- Keep modified: `src/config/env.ts`, `src/config/env.test.ts`.
+- Modify: `src/ha-app/package.test.ts` to validate root HA app files and standalone Docker files.
+- Move/create: root `config.yaml`, root `Dockerfile`, root `run.sh`, root `DOCS.md`, root `CHANGELOG.md`.
+- Move/create: `standalone/Dockerfile`, `standalone/docker-compose.yml`.
+- Modify: `README.md` to document both deployment paths.
+- Delete: `home-assistant-app/`.
 
-## Task 1: Align Log Level Parsing With App Schema
+## Task 1: Confirm Log Level Alignment
 
 **Files:**
-- Modify: `src/config/env.test.ts`
-- Modify: `src/config/env.ts`
+- Verify: `src/config/env.ts`
+- Verify: `src/config/env.test.ts`
 
-- [ ] **Step 1: Add failing tests for `trace` and `fatal` log levels**
-
-Append these tests inside the existing `describe("parseEnv", () => { ... })` block in `src/config/env.test.ts`:
-
-```ts
-  test("accepts trace and fatal log levels", () => {
-    const baseEnv = {
-      RF003_BASE_URL: "http://rf003.local",
-      RF003_USERNAME: "admin",
-      RF003_PASSWORD: "secret",
-      MQTT_URL: "mqtt://mosquitto.local:1883",
-      VALKEY_URL: "redis://valkey.local:6379",
-    };
-
-    expect(parseEnv({ ...baseEnv, LOG_LEVEL: "trace" }).logLevel).toBe("trace");
-    expect(parseEnv({ ...baseEnv, LOG_LEVEL: "fatal" }).logLevel).toBe("fatal");
-  });
-
-  test("rejects unsupported log levels", () => {
-    expect(() =>
-      parseEnv({
-        RF003_BASE_URL: "http://rf003.local",
-        RF003_USERNAME: "admin",
-        RF003_PASSWORD: "secret",
-        MQTT_URL: "mqtt://mosquitto.local:1883",
-        VALKEY_URL: "redis://valkey.local:6379",
-        LOG_LEVEL: "verbose",
-      }),
-    ).toThrow("LOG_LEVEL must be one of trace, debug, info, warn, error, fatal");
-  });
-```
-
-- [ ] **Step 2: Run the focused config tests to verify they fail**
+- [ ] **Step 1: Run config tests**
 
 Run: `bun test src/config/env.test.ts`
 
-Expected: FAIL because `trace` and `fatal` are rejected, and the old error message does not include them.
+Expected: PASS. The tests must include `trace` and `fatal` acceptance and `verbose` rejection.
 
-- [ ] **Step 3: Extend the exported config type**
+- [ ] **Step 2: Inspect log level parser**
 
-In `src/config/env.ts`, change the `logLevel` type from:
-
-```ts
-  logLevel: "debug" | "info" | "warn" | "error";
-```
-
-to:
-
-```ts
-  logLevel: "trace" | "debug" | "info" | "warn" | "error" | "fatal";
-```
-
-- [ ] **Step 4: Extend `parseLogLevel`**
-
-Replace the current `parseLogLevel` implementation in `src/config/env.ts` with:
+Confirm `src/config/env.ts` contains:
 
 ```ts
 const logLevels = ["trace", "debug", "info", "warn", "error", "fatal"] as const;
-
-const parseLogLevel = (value: string | undefined): AppConfig["logLevel"] => {
-  if (!value) {
-    return "info";
-  }
-
-  if (logLevels.includes(value as AppConfig["logLevel"])) {
-    return value as AppConfig["logLevel"];
-  }
-
-  throw new Error(`LOG_LEVEL must be one of ${logLevels.join(", ")}`);
-};
 ```
 
-- [ ] **Step 5: Run config tests to verify they pass**
+and `AppConfig["logLevel"]` includes all six values.
 
-Run: `bun test src/config/env.test.ts`
+- [ ] **Step 3: Commit only if missing fixes were needed**
 
-Expected: PASS.
-
-- [ ] **Step 6: Commit log level alignment**
-
-Run:
+If this task required edits, commit them:
 
 ```bash
 git add src/config/env.ts src/config/env.test.ts
 git commit -m "fix: support all pino log levels"
 ```
 
-Expected: commit succeeds.
+Expected: On the current branch, no edits or commit should be needed.
 
-## Task 2: Add Static Validation For The Home Assistant App Package
+## Task 2: Replace Package Contract Tests For Root HA App Layout
 
 **Files:**
-- Create: `src/ha-app/package.test.ts`
+- Modify: `src/ha-app/package.test.ts`
 
-- [ ] **Step 1: Create the failing package validation test**
+- [ ] **Step 1: Replace the package test with the new contract**
 
-Create `src/ha-app/package.test.ts` with this content:
+Replace `src/ha-app/package.test.ts` with:
 
 ```ts
 import { describe, expect, test } from "bun:test";
@@ -133,23 +81,28 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const repoRoot = new URL("../../", import.meta.url).pathname;
-const appDir = join(repoRoot, "home-assistant-app");
 
-const readAppFile = (path: string): string => readFileSync(join(appDir, path), "utf8");
+const readRepoFile = (path: string): string => readFileSync(join(repoRoot, path), "utf8");
 
 describe("Home Assistant app package", () => {
-  test("contains the required app files", () => {
-    for (const path of ["config.yaml", "Dockerfile", "run.sh", "README.md", "DOCS.md", "CHANGELOG.md"]) {
-      expect(existsSync(join(appDir, path))).toBe(true);
+  test("contains root Home Assistant app files", () => {
+    for (const path of ["config.yaml", "Dockerfile", "run.sh", "DOCS.md", "CHANGELOG.md"]) {
+      expect(existsSync(join(repoRoot, path))).toBe(true);
+    }
+  });
+
+  test("contains standalone Docker runtime files", () => {
+    for (const path of ["standalone/Dockerfile", "standalone/docker-compose.yml"]) {
+      expect(existsSync(join(repoRoot, path))).toBe(true);
     }
   });
 
   test("declares a headless mqtt-dependent Supervisor app", () => {
-    const config = readAppFile("config.yaml");
+    const config = readRepoFile("config.yaml");
 
     expect(config).toContain('name: "eLAN RF-003 MQTT Bridge"');
     expect(config).toContain('slug: "elan_ha"');
-    expect(config).toContain("version: \"0.1.0\"");
+    expect(config).toContain('version: "0.1.0"');
     expect(config).toContain("services:\n  - mqtt:need");
     expect(config).toContain("startup: application");
     expect(config).toContain("boot: auto");
@@ -164,7 +117,7 @@ describe("Home Assistant app package", () => {
   });
 
   test("defines RF-003 options and password schema", () => {
-    const config = readAppFile("config.yaml");
+    const config = readRepoFile("config.yaml");
 
     expect(config).toContain("options:\n  rf003_base_url: \"\"");
     expect(config).toContain('  mqtt_discovery_prefix: "homeassistant"');
@@ -177,7 +130,7 @@ describe("Home Assistant app package", () => {
   });
 
   test("starts internal Valkey and maps Supervisor configuration in run.sh", () => {
-    const runScript = readAppFile("run.sh");
+    const runScript = readRepoFile("run.sh");
 
     expect(runScript).toContain("#!/usr/bin/with-contenv bashio");
     expect(runScript).toContain('valkey-server --bind 127.0.0.1 --port 6379 --save "" --appendonly no');
@@ -192,15 +145,53 @@ describe("Home Assistant app package", () => {
     expect(runScript).toContain("bun /app/dist/index.js");
   });
 
-  test("builds from a Home Assistant base image and installs Valkey", () => {
-    const dockerfile = readAppFile("Dockerfile");
+  test("builds the Home Assistant app from the repository root", () => {
+    const dockerfile = readRepoFile("Dockerfile");
 
     expect(dockerfile).toContain("FROM oven/bun:1.3.11-alpine AS deps");
     expect(dockerfile).toContain("FROM ghcr.io/home-assistant/base:3.22");
+    expect(dockerfile).toContain("COPY src ./src");
+    expect(dockerfile).toContain("COPY config.yaml DOCS.md CHANGELOG.md run.sh ./");
     expect(dockerfile).toContain("io.hass.type=\"app\"");
     expect(dockerfile).toContain("apk add --no-cache ca-certificates libstdc++ valkey");
     expect(dockerfile).toContain("COPY --from=builder /app/dist ./dist");
     expect(dockerfile).toContain('CMD ["/run.sh"]');
+  });
+
+  test("keeps standalone Docker Compose separate from the HA app", () => {
+    const compose = readRepoFile("standalone/docker-compose.yml");
+    const standaloneDockerfile = readRepoFile("standalone/Dockerfile");
+
+    expect(compose).toContain("context: ..");
+    expect(compose).toContain("dockerfile: standalone/Dockerfile");
+    expect(compose).toContain("VALKEY_URL: ${VALKEY_URL:-redis://valkey:6379}");
+    expect(compose).toContain('"${APP_HTTP_PORT:-3000}:3000"');
+    expect(standaloneDockerfile).toContain("FROM oven/bun:1.3.11-alpine AS deps");
+    expect(standaloneDockerfile).toContain("HEALTHCHECK");
+    expect(standaloneDockerfile).toContain('CMD ["bun", "dist/index.js"]');
+  });
+
+  test("documents local installation, MQTT dependency, logs, and restart behavior", () => {
+    const readme = readRepoFile("README.md");
+    const docs = readRepoFile("DOCS.md");
+    const changelog = readRepoFile("CHANGELOG.md");
+
+    expect(readme).toContain("standalone/docker-compose.yml");
+    expect(readme).toContain("/addons/elan-ha");
+    expect(readme).toContain("MQTT Discovery");
+
+    expect(docs).toContain("MQTT app is required");
+    expect(docs).toContain("/addons/elan-ha");
+    expect(docs).toContain("Use the RF-003 IP address");
+    expect(docs).toContain("Supervisor logs");
+    expect(docs).toContain("republishes MQTT Discovery");
+
+    expect(changelog).toContain("## 0.1.0");
+    expect(changelog).toContain("Initial local Home Assistant app package");
+  });
+
+  test("does not keep the obsolete nested app package", () => {
+    expect(existsSync(join(repoRoot, "home-assistant-app"))).toBe(false);
   });
 });
 ```
@@ -209,29 +200,84 @@ describe("Home Assistant app package", () => {
 
 Run: `bun test src/ha-app/package.test.ts`
 
-Expected: FAIL because `home-assistant-app/` and its files do not exist yet.
+Expected: FAIL because root HA app files and `standalone/` files do not yet match this contract.
 
-- [ ] **Step 3: Commit the failing validation test**
+- [ ] **Step 3: Commit the revised failing contract**
 
 Run:
 
 ```bash
 git add src/ha-app/package.test.ts
-git commit -m "test: define home assistant app package contract"
+git commit -m "test: revise ha app packaging contract"
 ```
 
-Expected: commit succeeds with a failing test committed intentionally for the next task's TDD cycle.
+Expected: commit succeeds.
 
-## Task 3: Add Home Assistant App Metadata And Runtime Files
+## Task 3: Move Standalone Runtime Under `standalone/`
 
 **Files:**
-- Create: `home-assistant-app/config.yaml`
-- Create: `home-assistant-app/Dockerfile`
-- Create: `home-assistant-app/run.sh`
+- Move: `Dockerfile` to `standalone/Dockerfile`
+- Move: `docker-compose.yml` to `standalone/docker-compose.yml`
 
-- [ ] **Step 1: Create `config.yaml`**
+- [ ] **Step 1: Create `standalone/` and move files**
 
-Create `home-assistant-app/config.yaml` with this content:
+Move the current standalone files:
+
+```bash
+mkdir -p standalone
+git mv Dockerfile standalone/Dockerfile
+git mv docker-compose.yml standalone/docker-compose.yml
+```
+
+- [ ] **Step 2: Update Compose build path**
+
+In `standalone/docker-compose.yml`, change:
+
+```yaml
+    build:
+      context: .
+```
+
+to:
+
+```yaml
+    build:
+      context: ..
+      dockerfile: standalone/Dockerfile
+```
+
+Keep the existing `env_file`, `environment`, `ports`, `depends_on`, and Valkey service behavior unchanged.
+
+- [ ] **Step 3: Run package test and observe remaining failures**
+
+Run: `bun test src/ha-app/package.test.ts`
+
+Expected: FAIL because root HA app files are still missing, but standalone-specific assertions should pass.
+
+- [ ] **Step 4: Commit standalone move**
+
+Run:
+
+```bash
+git add standalone/Dockerfile standalone/docker-compose.yml Dockerfile docker-compose.yml src/ha-app/package.test.ts
+git commit -m "chore: move standalone docker runtime"
+```
+
+Expected: commit succeeds.
+
+## Task 4: Add Root Home Assistant App Runtime Files
+
+**Files:**
+- Create: `config.yaml`
+- Create: `Dockerfile`
+- Create: `run.sh`
+- Delete: `home-assistant-app/config.yaml`
+- Delete: `home-assistant-app/Dockerfile`
+- Delete: `home-assistant-app/run.sh`
+
+- [ ] **Step 1: Create root `config.yaml`**
+
+Create root `config.yaml`:
 
 ```yaml
 name: "eLAN RF-003 MQTT Bridge"
@@ -266,9 +312,9 @@ schema:
   log_level: list(trace|debug|info|warn|error|fatal)
 ```
 
-- [ ] **Step 2: Create the Home Assistant app Dockerfile**
+- [ ] **Step 2: Create root Home Assistant `Dockerfile`**
 
-Create `home-assistant-app/Dockerfile` with this content:
+Create root `Dockerfile`:
 
 ```dockerfile
 FROM oven/bun:1.3.11-alpine AS deps
@@ -283,6 +329,7 @@ FROM deps AS builder
 COPY tsconfig.json ./
 COPY src ./src
 COPY scripts ./scripts
+COPY config.yaml DOCS.md CHANGELOG.md run.sh ./
 
 RUN bun test
 RUN bun run typecheck
@@ -308,15 +355,15 @@ COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile --production
 
 COPY --from=builder /app/dist ./dist
-COPY home-assistant-app/run.sh /run.sh
+COPY run.sh /run.sh
 RUN chmod a+x /run.sh
 
 CMD ["/run.sh"]
 ```
 
-- [ ] **Step 3: Create the startup script**
+- [ ] **Step 3: Create root `run.sh`**
 
-Create `home-assistant-app/run.sh` with this content:
+Create root `run.sh`:
 
 ```bash
 #!/usr/bin/with-contenv bashio
@@ -388,85 +435,44 @@ cleanup
 exit "${EXIT_CODE}"
 ```
 
-- [ ] **Step 4: Run package validation tests**
-
-Run: `bun test src/ha-app/package.test.ts`
-
-Expected: PASS.
-
-- [ ] **Step 5: Run focused typecheck**
-
-Run: `bun run typecheck`
-
-Expected: PASS.
-
-- [ ] **Step 6: Commit app metadata and runtime files**
+- [ ] **Step 4: Remove obsolete nested runtime files**
 
 Run:
 
 ```bash
-git add home-assistant-app/config.yaml home-assistant-app/Dockerfile home-assistant-app/run.sh
-git commit -m "feat: add home assistant app runtime"
+git rm -r home-assistant-app
+```
+
+Expected: removes obsolete nested package files. If the directory is already gone, no action is needed.
+
+- [ ] **Step 5: Run package tests**
+
+Run: `bun test src/ha-app/package.test.ts`
+
+Expected: FAIL only for missing root docs content if `DOCS.md` or `CHANGELOG.md` are not ready yet.
+
+- [ ] **Step 6: Commit HA runtime files**
+
+Run:
+
+```bash
+git add config.yaml Dockerfile run.sh home-assistant-app src/ha-app/package.test.ts
+git commit -m "feat: add root home assistant app runtime"
 ```
 
 Expected: commit succeeds.
 
-## Task 4: Add Home Assistant App Documentation
+## Task 5: Add Root Home Assistant App Documentation
 
 **Files:**
-- Create: `home-assistant-app/README.md`
-- Create: `home-assistant-app/DOCS.md`
-- Create: `home-assistant-app/CHANGELOG.md`
+- Create: `DOCS.md`
+- Create: `CHANGELOG.md`
 - Modify: `README.md`
-- Modify: `src/ha-app/package.test.ts`
+- Delete or absorb: `home-assistant-app/README.md`, `home-assistant-app/DOCS.md`, `home-assistant-app/CHANGELOG.md`
 
-- [ ] **Step 1: Extend validation tests for required documentation content**
+- [ ] **Step 1: Create root `DOCS.md`**
 
-Append this test inside the `describe("Home Assistant app package", () => { ... })` block in `src/ha-app/package.test.ts`:
-
-```ts
-  test("documents local installation, MQTT dependency, logs, and restart behavior", () => {
-    const readme = readAppFile("README.md");
-    const docs = readAppFile("DOCS.md");
-    const changelog = readAppFile("CHANGELOG.md");
-
-    expect(readme).toContain("iNELS RF-003");
-    expect(readme).toContain("MQTT Discovery");
-
-    expect(docs).toContain("MQTT app is required");
-    expect(docs).toContain("/addons/elan-ha");
-    expect(docs).toContain("Use the RF-003 IP address");
-    expect(docs).toContain("Supervisor logs");
-    expect(docs).toContain("republishes MQTT Discovery");
-
-    expect(changelog).toContain("## 0.1.0");
-    expect(changelog).toContain("Initial local Home Assistant app package");
-  });
-```
-
-- [ ] **Step 2: Run package validation tests to verify they fail**
-
-Run: `bun test src/ha-app/package.test.ts`
-
-Expected: FAIL because documentation files are missing or empty.
-
-- [ ] **Step 3: Create app README**
-
-Create `home-assistant-app/README.md` with this content:
-
-```markdown
-# eLAN RF-003 MQTT Bridge
-
-Bridge an existing iNELS RF installation exposed by an RF-003 gateway into Home Assistant through MQTT Discovery.
-
-The app discovers supported RF-003 devices, publishes retained MQTT Discovery payloads, mirrors RF-003 state to MQTT, and sends Home Assistant MQTT commands back to RF-003 through a serialized BullMQ worker.
-
-Devices appear in Home Assistant through the normal MQTT device and entity UI. This app does not provide an ingress UI.
-```
-
-- [ ] **Step 4: Create app docs**
-
-Create `home-assistant-app/DOCS.md` with this content:
+Create root `DOCS.md`:
 
 ```markdown
 # eLAN RF-003 MQTT Bridge Documentation
@@ -495,7 +501,7 @@ The app reads MQTT host, port, username, and password from the Supervisor MQTT s
 ## Local Installation Before Publishing
 
 1. Install the SSH or Samba app on the Home Assistant system.
-2. Copy this app folder to `/addons/elan-ha`.
+2. Copy the repository root to `/addons/elan-ha` so `config.yaml`, `Dockerfile`, `run.sh`, `src/`, `package.json`, and `bun.lock` are all present.
 3. Reload local apps in Supervisor.
 4. Configure the RF-003 options.
 5. Start the app.
@@ -517,9 +523,9 @@ Discovered devices are exposed through MQTT Discovery and appear in Home Assista
 The app runs an internal ephemeral Valkey instance for BullMQ and runtime cache. Valkey is not persisted. After restart, the bridge reads RF-003 again, rebuilds its supported device registry, and republishes MQTT Discovery. Home Assistant entity remapping should not be required as long as RF-003 device identities remain stable.
 ```
 
-- [ ] **Step 5: Create app changelog**
+- [ ] **Step 2: Create root `CHANGELOG.md`**
 
-Create `home-assistant-app/CHANGELOG.md` with this content:
+Create root `CHANGELOG.md`:
 
 ```markdown
 # Changelog
@@ -532,51 +538,58 @@ Create `home-assistant-app/CHANGELOG.md` with this content:
 - Exposes RF-003 devices through MQTT Discovery without an ingress UI.
 ```
 
-- [ ] **Step 6: Add root README section**
+- [ ] **Step 3: Update root README deployment sections**
 
-In `README.md`, after the Docker Runtime section and before `## MQTT Topics`, add:
+In `README.md`, update Docker commands to reference standalone Compose:
+
+```bash
+docker compose -f standalone/docker-compose.yml up --build
+docker compose -f standalone/docker-compose.yml down
+```
+
+Add or update the Home Assistant app section so it says:
 
 ```markdown
 ## Home Assistant App Package
 
-This repository also contains a headless Home Assistant Supervisor app package in `home-assistant-app/`.
+The repository root is also a headless Home Assistant Supervisor app package for local testing before published images exist.
 
-The app package is for local Supervisor testing before published images exist. It uses Home Assistant's MQTT service, reads RF-003 settings from the Supervisor configuration form, runs an internal ephemeral Valkey instance for BullMQ, and exposes devices through MQTT Discovery. It does not provide an ingress UI.
+The app uses Home Assistant's MQTT service, reads RF-003 settings from the Supervisor configuration form, runs an internal ephemeral Valkey instance for BullMQ, and exposes devices through MQTT Discovery. It does not provide an ingress UI.
 
-For local testing, copy `home-assistant-app/` to `/addons/elan-ha` on a Home Assistant system, reload local apps in Supervisor, configure the RF-003 options, and start the app.
+For local testing, copy the repository root to `/addons/elan-ha` on a Home Assistant system, reload local apps in Supervisor, configure the RF-003 options, and start the app.
 
-The existing `docker-compose.yml` remains the standalone deployment path for non-Supervisor environments and for manual MQTT broker configuration.
+The standalone Docker Compose deployment remains available through `standalone/docker-compose.yml` for non-Supervisor environments and manual MQTT broker configuration.
 ```
 
-- [ ] **Step 7: Run package validation tests**
+- [ ] **Step 4: Run package tests**
 
 Run: `bun test src/ha-app/package.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit documentation**
+- [ ] **Step 5: Commit documentation**
 
 Run:
 
 ```bash
-git add home-assistant-app/README.md home-assistant-app/DOCS.md home-assistant-app/CHANGELOG.md README.md src/ha-app/package.test.ts
-git commit -m "docs: document home assistant app package"
+git add DOCS.md CHANGELOG.md README.md src/ha-app/package.test.ts home-assistant-app
+git commit -m "docs: document root home assistant app package"
 ```
 
 Expected: commit succeeds.
 
-## Task 5: Verify Docker Build And Full Project Checks
+## Task 6: Verify Full Revised Packaging
 
 **Files:**
-- No source edits expected unless verification exposes a defect.
+- No source edits expected.
 
-- [ ] **Step 1: Run focused app package tests**
+- [ ] **Step 1: Run focused package tests**
 
 Run: `bun test src/config/env.test.ts src/ha-app/package.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full test suite**
+- [ ] **Step 2: Run full tests**
 
 Run: `bun test`
 
@@ -588,25 +601,31 @@ Run: `bun run typecheck`
 
 Expected: PASS.
 
-- [ ] **Step 4: Run root Docker build**
+- [ ] **Step 4: Build Home Assistant app image**
 
-Run: `docker build -t elan-ha:local .`
-
-Expected: Docker build completes successfully.
-
-- [ ] **Step 5: Run Home Assistant app Docker build**
-
-Run: `docker build -f home-assistant-app/Dockerfile -t elan-ha-ha-app:local .`
+Run: `docker build -t elan-ha-ha-app:local .`
 
 Expected: Docker build completes successfully.
 
-- [ ] **Step 6: Run production build**
+- [ ] **Step 5: Build standalone image**
+
+Run: `docker build -f standalone/Dockerfile -t elan-ha-standalone:local .`
+
+Expected: Docker build completes successfully.
+
+- [ ] **Step 6: Validate standalone Compose config**
+
+Run: `docker compose -f standalone/docker-compose.yml config`
+
+Expected: Compose config renders successfully and includes app and Valkey services.
+
+- [ ] **Step 7: Run production Bun build**
 
 Run: `bun run build`
 
 Expected: PASS and `dist/index.js` is produced.
 
-- [ ] **Step 7: Stop on verification failures**
+- [ ] **Step 8: Stop on verification failures**
 
 If any verification command fails, stop execution and report the exact failing command and error output before making additional changes. Do not guess at fixes during final verification.
 
@@ -614,7 +633,7 @@ Expected: no source edits or commits are needed if all verification commands pas
 
 ## Self-Review
 
-- Spec coverage: Tasks 2 through 4 create the app folder, metadata, runtime, docs, and local testing instructions. Task 3 covers internal Valkey, `mqtt:need`, Bashio service lookup, normal networking, and no exposed UI/ports. Task 5 covers local Docker validation.
-- Log-level consistency: Task 1 aligns the app schema's `trace|debug|info|warn|error|fatal` values with `parseEnv` before the app exposes them.
-- Standalone Docker preservation: No task modifies `docker-compose.yml` or removes root Docker behavior; README explicitly keeps it as the standalone path.
-- Out of scope preserved: No ingress, web UI, manual HA-app MQTT mode, GHCR workflow, host networking, or Home Assistant Core API access is added.
+- Spec coverage: The plan implements the revised root Home Assistant app package, standalone runtime directory, MQTT service dependency, internal Valkey, local HA testing docs, and no UI/ingress/security expansion.
+- Standalone preservation: Existing Compose behavior is preserved under `standalone/docker-compose.yml` with `context: ..` and the old standalone Dockerfile moved to `standalone/Dockerfile`.
+- Local HA buildability: Root `Dockerfile` can access `src/`, `package.json`, `bun.lock`, `config.yaml`, `DOCS.md`, `CHANGELOG.md`, and `run.sh` in one build context.
+- Out of scope preserved: No GHCR workflow, `image:`, ingress, manual HA-app MQTT mode, Home Assistant Core API integration, or host networking is added.
