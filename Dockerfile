@@ -10,7 +10,7 @@ FROM deps AS builder
 COPY tsconfig.json ./
 COPY src ./src
 COPY scripts ./scripts
-COPY home-assistant-app ./home-assistant-app
+COPY config.yaml DOCS.md CHANGELOG.md run.sh ./
 
 RUN bun test
 RUN bun run typecheck
@@ -36,7 +36,7 @@ COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile --production
 
 COPY --from=builder /app/dist ./dist
-COPY home-assistant-app/run.sh /run.sh
+COPY run.sh /run.sh
 RUN chmod a+x /run.sh
 
 CMD ["/run.sh"]
