@@ -22,7 +22,7 @@ export type AppConfig = {
     host: string;
     port: number;
   };
-  logLevel: "debug" | "info" | "warn" | "error";
+  logLevel: "trace" | "debug" | "info" | "warn" | "error" | "fatal";
 };
 
 type EnvInput = Record<string, string | undefined>;
@@ -89,16 +89,18 @@ const parseHttpPort = (env: EnvInput, name: string, defaultValue: number): numbe
   return value;
 };
 
+const logLevels = ["trace", "debug", "info", "warn", "error", "fatal"] as const;
+
 const parseLogLevel = (value: string | undefined): AppConfig["logLevel"] => {
   if (!value) {
     return "info";
   }
 
-  if (value === "debug" || value === "info" || value === "warn" || value === "error") {
-    return value;
+  if (logLevels.includes(value as AppConfig["logLevel"])) {
+    return value as AppConfig["logLevel"];
   }
 
-  throw new Error("LOG_LEVEL must be one of debug, info, warn, error");
+  throw new Error(`LOG_LEVEL must be one of ${logLevels.join(", ")}`);
 };
 
 export const parseEnv = (env: EnvInput): AppConfig => {

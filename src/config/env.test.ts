@@ -140,4 +140,30 @@ describe("parseEnv", () => {
       }),
     ).toThrow("HTTP_PORT must be between 1 and 65535");
   });
+
+  test("accepts trace and fatal log levels", () => {
+    const baseEnv = {
+      RF003_BASE_URL: "http://rf003.local",
+      RF003_USERNAME: "admin",
+      RF003_PASSWORD: "secret",
+      MQTT_URL: "mqtt://mosquitto.local:1883",
+      VALKEY_URL: "redis://valkey.local:6379",
+    };
+
+    expect(parseEnv({ ...baseEnv, LOG_LEVEL: "trace" }).logLevel).toBe("trace");
+    expect(parseEnv({ ...baseEnv, LOG_LEVEL: "fatal" }).logLevel).toBe("fatal");
+  });
+
+  test("rejects unsupported log levels", () => {
+    expect(() =>
+      parseEnv({
+        RF003_BASE_URL: "http://rf003.local",
+        RF003_USERNAME: "admin",
+        RF003_PASSWORD: "secret",
+        MQTT_URL: "mqtt://mosquitto.local:1883",
+        VALKEY_URL: "redis://valkey.local:6379",
+        LOG_LEVEL: "verbose",
+      }),
+    ).toThrow("LOG_LEVEL must be one of trace, debug, info, warn, error, fatal");
+  });
 });
