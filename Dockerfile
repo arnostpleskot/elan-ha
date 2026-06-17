@@ -12,8 +12,6 @@ COPY src ./src
 COPY scripts ./scripts
 COPY config.yaml run.sh ./
 
-RUN bun test src/app src/config src/devices src/gateway src/http src/mqtt src/observability src/queue src/storage
-RUN bun run typecheck
 RUN bun run build
 
 FROM ghcr.io/home-assistant/base:3.22
@@ -36,7 +34,8 @@ COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile --production
 
 COPY --from=builder /app/dist ./dist
+COPY init.sh /init
 COPY run.sh /run.sh
-RUN chmod a+x /run.sh
+RUN chmod a+x /run.sh /init
 
 CMD ["/run.sh"]

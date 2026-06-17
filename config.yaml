@@ -8,6 +8,7 @@ arch:
   - amd64
 startup: application
 boot: auto
+init: false
 services:
   - mqtt:need
 options:

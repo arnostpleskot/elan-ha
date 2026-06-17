@@ -8,7 +8,7 @@ const readRepoFile = (path: string): string => readFileSync(join(repoRoot, path)
 
 describe("Home Assistant app package", () => {
   test("contains root Home Assistant app files", () => {
-    for (const path of ["config.yaml", "Dockerfile", "run.sh", "DOCS.md", "CHANGELOG.md"]) {
+    for (const path of ["config.yaml", "Dockerfile", "run.sh", "init.sh", "DOCS.md", "CHANGELOG.md"]) {
       expect(existsSync(join(repoRoot, path)), path).toBe(true);
     }
   });
@@ -28,6 +28,7 @@ describe("Home Assistant app package", () => {
     expect(config).toContain("services:\n  - mqtt:need");
     expect(config).toContain("startup: application");
     expect(config).toContain("boot: auto");
+    expect(config).toContain("init: false");
 
     expect(config).not.toContain("ingress:");
     expect(config).not.toContain("webui:");
@@ -55,8 +56,13 @@ describe("Home Assistant app package", () => {
   test("starts internal Valkey and maps Supervisor configuration in run.sh", () => {
     const runScript = readRepoFile("run.sh");
 
-    expect(runScript).toContain("#!/usr/bin/with-contenv bashio");
+    expect(runScript).toContain("#!/usr/bin/env bash");
+    expect(runScript).toContain(". /usr/lib/bashio/bashio.sh");
+    expect(runScript).not.toContain("with-contenv");
     expect(runScript).toContain('valkey-server --bind 127.0.0.1 --port 6379 --save "" --appendonly no');
+    expect(runScript).toContain('bash -c "true >/dev/tcp/127.0.0.1/6379"');
+    expect(runScript).toContain("/dev/tcp/127.0.0.1/6379");
+    expect(runScript).not.toContain("valkey-cli");
     expect(runScript).toContain('export VALKEY_URL="redis://127.0.0.1:6379"');
     expect(runScript).toContain('bashio::services mqtt "host"');
     expect(runScript).toContain('bashio::services mqtt "port"');
@@ -92,7 +98,24 @@ describe("Home Assistant app package", () => {
     expect(dockerfile).toContain("io.hass.type=\"app\"");
     expect(dockerfile).toContain("apk add --no-cache ca-certificates libstdc++ valkey");
     expect(dockerfile).toContain("COPY --from=builder /app/dist ./dist");
+    expect(dockerfile).toContain("COPY init.sh /init");
+    expect(dockerfile).toContain("chmod a+x /run.sh /init");
     expect(dockerfile).toContain('CMD ["/run.sh"]');
+  });
+
+  test("overrides the HA base s6 init with a normal process launcher", () => {
+    const initScript = readRepoFile("init.sh");
+
+    expect(initScript).toContain("#!/usr/bin/env sh");
+    expect(initScript).toContain('exec "$@"');
+  });
+
+  test("keeps Home Assistant app Docker builds deploy-focused", () => {
+    const dockerfile = readRepoFile("Dockerfile");
+
+    expect(dockerfile).not.toContain("RUN bun test");
+    expect(dockerfile).not.toContain("RUN bun run typecheck");
+    expect(dockerfile).toContain("RUN bun run build");
   });
 
   test("keeps standalone Docker Compose separate from the HA app", () => {

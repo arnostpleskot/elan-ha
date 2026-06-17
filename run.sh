@@ -1,6 +1,8 @@
-#!/usr/bin/with-contenv bashio
+#!/usr/bin/env bash
 # shellcheck shell=bash
 set -euo pipefail
+
+. /usr/lib/bashio/bashio.sh
 
 CONFIG_PATH=/data/options.json
 
@@ -17,7 +19,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 for attempt in $(seq 1 50); do
-  if valkey-cli -h 127.0.0.1 -p 6379 ping 2>/dev/null | grep -q PONG; then
+  if bash -c "true >/dev/tcp/127.0.0.1/6379" 2>/dev/null; then
     bashio::log.info "Internal Valkey is ready"
     break
   fi
