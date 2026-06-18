@@ -253,6 +253,15 @@ describe("Home Assistant app repository package", () => {
     expect(publish).toContain('context: "./elan-ha"');
   });
 
+  test("configures Dependabot for nested app dependencies and workflows", () => {
+    const dependabot = readRepoFile(".github/dependabot.yml");
+
+    expect(dependabot).toContain('package-ecosystem: "npm"');
+    expect(dependabot).toContain('directory: "/elan-ha"');
+    expect(dependabot).toContain('package-ecosystem: "github-actions"');
+    expect(dependabot).toContain('directory: "/"');
+  });
+
   test("documents GitHub and Home Assistant audiences separately", () => {
     const rootReadme = readRepoFile("README.md");
     const appReadme = readRepoFile("elan-ha/README.md");
