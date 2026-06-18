@@ -114,7 +114,7 @@ describe("Home Assistant app repository package", () => {
     expect(config).toContain('name: "eLAN RF-003 MQTT Bridge"');
     expect(config).toContain('slug: "elan_ha"');
     expect(config).toContain('description: "Bridge iNELS RF-003 devices to Home Assistant through MQTT Discovery"');
-    expect(config).toContain('version: "0.1.0"');
+    expect(config).toContain('version: "0.1.1"');
     expect(config).toContain("arch:\n  - aarch64\n  - amd64");
     expect(config).toContain('image: "ghcr.io/arnostpleskot/elan-ha"');
     expect(config).toContain("services:\n  - mqtt:need");
@@ -284,6 +284,8 @@ describe("Home Assistant app repository package", () => {
     expect(docs).toContain("Restart Behavior");
 
     expect(changelog).toContain("## 0.1.0");
+    expect(changelog).toContain("## 0.1.1");
+    expect(changelog).toContain("Updated BullMQ and Elysia dependencies.");
     expect(changelog).toContain("Initial local Home Assistant app package");
   });
 });

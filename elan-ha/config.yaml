@@ -1,5 +1,5 @@
 name: "eLAN RF-003 MQTT Bridge"
-version: "0.1.0"
+version: "0.1.1"
 slug: "elan_ha"
 description: "Bridge iNELS RF-003 devices to Home Assistant through MQTT Discovery"
 url: "https://github.com/arnostpleskot/elan-ha"
