@@ -21,15 +21,15 @@
 
 The app reads MQTT host, port, username, and password from the Supervisor MQTT service. Manual MQTT broker configuration is available through the standalone Docker Compose deployment, not this Home Assistant app package.
 
-## Local Installation Before Publishing
+## Installation
 
-1. Install the SSH or Samba app on the Home Assistant system.
-2. Copy the repository root to `/addons/elan-ha` so `config.yaml`, `Dockerfile`, `run.sh`, `src/`, `package.json`, and `bun.lock` are all present.
-3. Reload local apps in Supervisor.
+1. In Home Assistant Supervisor, open the app store repository settings.
+2. Add `https://github.com/arnostpleskot/elan-ha` as an app repository.
+3. Install the `eLAN RF-003 MQTT Bridge` app.
 4. Configure the RF-003 options.
 5. Start the app.
 
-The app package intentionally omits `image:` in `config.yaml` so Supervisor builds it locally while the package is not yet published to a container registry.
+The app `config.yaml` references the GHCR image name. The publishing workflow is responsible for publishing that image.
 
 ## RF-003 Network Access
 

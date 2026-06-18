@@ -3,6 +3,7 @@ version: "0.1.0"
 slug: "elan_ha"
 description: "Bridge iNELS RF-003 devices to Home Assistant through MQTT Discovery"
 url: "https://github.com/arnostpleskot/elan-ha"
+image: "ghcr.io/arnostpleskot/elan-ha"
 arch:
   - aarch64
   - amd64

@@ -9,7 +9,7 @@
     "start": "bun src/index.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
-    "lint": "tsc --noEmit",
+    "lint": "oxlint .",
     "format": "bunx prettier --write .",
     "build": "bun build src/index.ts --outdir dist --target bun"
   },
@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "oxlint": "^1.70.0",
     "pino-pretty": "latest",
     "prettier": "latest",
     "typescript": "latest"

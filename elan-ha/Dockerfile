@@ -10,7 +10,6 @@ FROM deps AS builder
 COPY tsconfig.json ./
 COPY src ./src
 COPY scripts ./scripts
-COPY config.yaml run.sh ./
 
 RUN bun run build
 

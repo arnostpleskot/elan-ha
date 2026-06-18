@@ -21,7 +21,7 @@ Use the proof-of-concept implementation as the RF-003 behavior reference. In par
 
 ## Current Repository State
 
-This repository is currently bootstrapped but does not yet contain the Bun/TypeScript application source tree. Treat the sections below as the implementation target.
+This repository contains the Home Assistant app package under `elan-ha/`, with the Bun/TypeScript application source tree under `elan-ha/src/`.
 
 When adding project files, prefer minimal, incremental changes that establish the documented architecture without inventing unrelated features.
 
@@ -70,38 +70,38 @@ Elysia is used for health checks, readiness checks, metrics, debugging, and Open
 
 ## Expected Source Layout
 
-Create and preserve this structure unless there is a strong reason to change it:
+Create and preserve this structure inside `elan-ha/` unless there is a strong reason to change it:
 
 ```text
-src/
-|-- app/
-|-- config/
-|-- gateway/
-|   |-- client.ts
-|   |-- session.ts
-|   |-- parser.ts
-|   `-- types.ts
-|-- mqtt/
-|   |-- client.ts
-|   |-- discovery.ts
-|   `-- topics.ts
-|-- devices/
-|   |-- registry.ts
-|   |-- rfsa66m.ts
-|   `-- types.ts
-|-- queue/
-|   |-- worker.ts
-|   |-- jobs.ts
-|   `-- scheduler.ts
-|-- storage/
-|   `-- valkey.ts
-|-- observability/
-|   |-- logger.ts
-|   |-- health.ts
-|   |-- readiness.ts
-|   `-- metrics.ts
-`-- http/
-    `-- server.ts
+elan-ha/
+`-- src/
+    |-- app/
+    |-- config/
+    |-- gateway/
+    |   |-- client.ts
+    |   |-- session.ts
+    |   |-- parser.ts
+    |   `-- types.ts
+    |-- mqtt/
+    |   |-- client.ts
+    |   |-- discovery.ts
+    |   `-- topics.ts
+    |-- devices/
+    |   |-- registry.ts
+    |   `-- types.ts
+    |-- queue/
+    |   |-- worker.ts
+    |   |-- jobs.ts
+    |   `-- scheduler.ts
+    |-- storage/
+    |   `-- valkey.ts
+    |-- observability/
+    |   |-- logger.ts
+    |   |-- health.ts
+    |   |-- readiness.ts
+    |   `-- metrics.ts
+    `-- http/
+        `-- server.ts
 ```
 
 Keep modules small and purpose-specific. Avoid central files that mix gateway access, MQTT behavior, device modeling, queueing, and HTTP concerns.
@@ -110,13 +110,13 @@ Keep modules small and purpose-specific. Avoid central files that mix gateway ac
 
 Expected commands once `package.json` exists:
 
-- Install dependencies: `bun install`
-- Start development server: `bun run dev`
-- Run tests: `bun test`
-- Type-check: `bun run typecheck`
-- Lint: `bun run lint`
-- Format: `bun run format`
-- Build: `bun run build`
+- Install dependencies: `cd elan-ha && bun install`
+- Start development server: `cd elan-ha && bun run dev`
+- Run tests: `cd elan-ha && bun test`
+- Type-check: `cd elan-ha && bun run typecheck`
+- Lint: `cd elan-ha && bun run lint`
+- Format: `cd elan-ha && bun run format`
+- Build: `cd elan-ha && bun run build`
 - Create local environment file: `cp .env.example .env`
 - Start Docker development runtime: `docker compose -f standalone/docker-compose.yml up --build`
 - Stop Docker development runtime: `docker compose -f standalone/docker-compose.yml down`
@@ -141,7 +141,7 @@ Expected configuration areas:
 - Log level
 - HTTP listen host and port
 
-Prefer typed config parsing in `src/config/`. Fail fast on invalid required config.
+Prefer typed config parsing in `elan-ha/src/config/`. Fail fast on invalid required config.
 
 Polling intervals must be configurable. Start with environment variables and sane defaults. A later stage may allow these settings to be managed from the Home Assistant UI, but do not add direct Home Assistant API coupling for the MVP.
 
@@ -320,17 +320,16 @@ Prefer unit tests around pure modules first: parser, topics, discovery payloads,
 
 ## Build And Deployment
 
-The deployment target is Docker. In later stages the container is expected to run under Home Assistant Supervisor.
+The deployment target is Docker. The current repository includes the standalone Docker Compose runtime and a Home Assistant Supervisor app package under `elan-ha/`.
 
-Next deployment work should include:
+The Dockerfiles, Home Assistant app package, and Docker Compose runtime exist. Home Assistant Add-on/Supervisor hardening and publishing automation continue through next deployment work:
 
-- Docker image
-- Docker Compose development runtime with app and Valkey services
+- GHCR publishing workflow
+- Branch protection for release and publishing paths
+- Home Assistant repository publishing hardening
 
 Future deployment work may include:
 
-- Production Docker hardening
-- Home Assistant Add-on packaging
 - Prometheus metrics
 - OpenTelemetry tracing
 
@@ -368,5 +367,5 @@ Everything goes through MQTT.
 - Supported MVP entity types are on/off switches and brightness-capable dimmable lights.
 - The bridge should support forced discovery, for example through an HTTP endpoint.
 - Polling intervals are configurable, initially through environment variables with sane defaults.
-- Docker is the target deployment format, with Home Assistant Supervisor support planned for later stages.
+- Docker is the target deployment format, with the current Home Assistant Supervisor app package under `elan-ha/`.
 - Valkey is mandatory for the MVP because BullMQ and device configuration depend on it.

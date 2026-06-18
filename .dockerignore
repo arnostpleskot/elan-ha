@@ -4,14 +4,15 @@
 .opencode
 .agents
 node_modules
+elan-ha/node_modules
 dist
+elan-ha/dist
 coverage
+elan-ha/coverage
 .env
 .env.*
 !.env.example
 *.log
-Dockerfile*
-docker-compose*.yml
 docs
 skills-lock.json
 opencode.json

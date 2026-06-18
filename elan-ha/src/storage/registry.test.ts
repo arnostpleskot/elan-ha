@@ -236,7 +236,11 @@ describe("device registry storage", () => {
 
     expect(await loadDeviceRegistry(redis, logger)).toEqual([]);
     expect(warnings).toHaveLength(1);
-    const rawField = (warnings[0]?.obj as { raw?: string }).raw;
+    const firstWarning = warnings[0];
+    if (!firstWarning) {
+      throw new Error("Expected a schema-invalid warning");
+    }
+    const rawField = (firstWarning.obj as { raw?: string }).raw;
     expect(typeof rawField).toBe("string");
     expect((rawField as string).length).toBeLessThanOrEqual(256);
   });
