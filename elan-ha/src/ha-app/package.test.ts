@@ -256,7 +256,7 @@ describe("Home Assistant app repository package", () => {
   test("configures Dependabot for nested app dependencies and workflows", () => {
     const dependabot = readRepoFile(".github/dependabot.yml");
 
-    expect(dependabot).toContain('package-ecosystem: "npm"');
+    expect(dependabot).toContain('package-ecosystem: "bun"');
     expect(dependabot).toContain('directory: "/elan-ha"');
     expect(dependabot).toContain('package-ecosystem: "github-actions"');
     expect(dependabot).toContain('directory: "/"');
