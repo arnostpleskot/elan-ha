@@ -114,7 +114,7 @@ describe("Home Assistant app repository package", () => {
     expect(config).toContain('name: "eLAN RF-003 MQTT Bridge"');
     expect(config).toContain('slug: "elan_ha"');
     expect(config).toContain('description: "Bridge iNELS RF-003 devices to Home Assistant through MQTT Discovery"');
-    expect(config).toContain('version: "0.1.1"');
+    expect(config).toContain('version: "0.1.2"');
     expect(config).toContain("arch:\n  - aarch64\n  - amd64");
     expect(config).toContain('image: "ghcr.io/arnostpleskot/elan-ha"');
     expect(config).toContain("services:\n  - mqtt:need");
@@ -131,6 +131,13 @@ describe("Home Assistant app repository package", () => {
     expect(config).not.toContain("docker_api:");
     expect(config).not.toContain("full_access:");
     expect(config).not.toContain("apparmor: false");
+  });
+
+  test("includes Home Assistant app presentation assets", () => {
+    expect(existsSync(join(repoRoot, "elan-ha/logo.png")), "elan-ha/logo.png").toBe(true);
+    expect(existsSync(join(repoRoot, "elan-ha/icon.png")), "elan-ha/icon.png").toBe(true);
+    expect(existsSync(join(repoRoot, "elan-ha/logo.png~")), "elan-ha/logo.png~").toBe(false);
+    expect(existsSync(join(repoRoot, "elan-ha/icon.png~")), "elan-ha/icon.png~").toBe(false);
   });
 
   test("defines RF-003 options and password schema", () => {

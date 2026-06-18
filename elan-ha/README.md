@@ -1,5 +1,7 @@
 # eLAN RF-003 MQTT Bridge
 
+![eLAN RF-003 MQTT Bridge](logo.png)
+
 Bridge iNELS RF-003 devices into Home Assistant through MQTT Discovery.
 
 This Home Assistant Supervisor app connects to an RF-003 gateway, reads supported RF-003-discovered devices, and publishes them as MQTT Discovery entities. It uses Home Assistant's MQTT service and runs an internal ephemeral Valkey instance for queueing and runtime cache.
@@ -19,3 +21,7 @@ Use the RF-003 IP address if local DNS names such as `rf003.local` do not resolv
 ## Behavior
 
 The app has no ingress UI. Discovered RF-003 devices appear in Home Assistant through MQTT Discovery after startup discovery completes.
+
+## Disclaimer
+
+This project is independently maintained and is not affiliated with, endorsed by, sponsored by, or associated with ELKO EP, s.r.o. eLAN, iNELS, and RF-003 are trademarks or product names of their respective owners.

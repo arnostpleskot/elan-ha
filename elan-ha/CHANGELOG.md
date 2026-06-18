@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2
+
+- Added Home Assistant app logo and icon assets.
+- Added README logo and project affiliation disclaimers.
+
 ## 0.1.1
 
 - Updated BullMQ and Elysia dependencies.

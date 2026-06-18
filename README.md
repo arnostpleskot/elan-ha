@@ -1,5 +1,7 @@
 # elan-ha
 
+![eLAN RF-003 MQTT Bridge](logo.png)
+
 Home Assistant app repository for an iNELS RF-003 to MQTT bridge.
 
 This repository contains the Home Assistant Supervisor app package in `elan-ha/` and a standalone Docker Compose runtime in `standalone/`. The bridge talks to an RF-003 gateway, serializes gateway access through BullMQ and Valkey, and exposes supported devices to Home Assistant through MQTT Discovery.
@@ -66,3 +68,7 @@ RF-003 is the source of truth for device inventory and state. The bridge only ex
 All RF-003 communication is serialized through BullMQ with worker concurrency `1` to avoid session races, RF transmission collisions, and gateway overload. Runtime registry and queue metadata are stored in Valkey.
 
 Supported entities are published through Home Assistant MQTT Discovery, with state and command topics under the configured MQTT base topic.
+
+## Disclaimer
+
+This project is independently maintained and is not affiliated with, endorsed by, sponsored by, or associated with ELKO EP, s.r.o. eLAN, iNELS, and RF-003 are trademarks or product names of their respective owners.
