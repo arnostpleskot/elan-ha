@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+
+- Updated BullMQ and Elysia dependencies.
+
 ## 0.1.0
 
 - Initial local Home Assistant app package.
