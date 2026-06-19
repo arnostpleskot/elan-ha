@@ -1,0 +1,70 @@
+name: Device compatibility report
+description: Report RF-003-discovered device behavior and Home Assistant entity mapping.
+title: "Device compatibility: "
+labels:
+  - compatibility
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for real-world RF-003 device feedback. Do not paste RF-003 passwords, MQTT credentials, tokens, or other secrets. Sanitize logs and XML snippets before attaching them.
+  - type: input
+    id: app-version
+    attributes:
+      label: App version
+      placeholder: "0.1.2"
+    validations:
+      required: true
+  - type: input
+    id: rf003-version
+    attributes:
+      label: RF-003 firmware/version
+      description: Leave as "unknown" if you cannot find it.
+      placeholder: "unknown"
+    validations:
+      required: true
+  - type: textarea
+    id: device-models
+    attributes:
+      label: Device model(s)
+      description: List the iNELS/RF device models involved.
+      placeholder: "RFSA-66M, RFDA-71B"
+    validations:
+      required: true
+  - type: dropdown
+    id: appears-in-rf003
+    attributes:
+      label: Device appears in RF-003 discovery
+      options:
+        - "Yes"
+        - "No"
+        - Unsure
+    validations:
+      required: true
+  - type: dropdown
+    id: entity-type
+    attributes:
+      label: Home Assistant entity type created by the bridge
+      options:
+        - Switch
+        - Light
+        - No entity created
+        - Wrong entity type
+        - Unsure
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Observed behavior
+      description: Describe discovery, state updates, commands, brightness behavior, and any mismatch between RF-003 and Home Assistant.
+    validations:
+      required: true
+  - type: textarea
+    id: sanitized-data
+    attributes:
+      label: Sanitized logs or XML snippets
+      description: Include sanitized discovery/state logs or XML snippets if available. Remove secrets and private details.
+      render: text
+    validations:
+      required: false

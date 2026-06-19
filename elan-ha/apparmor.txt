@@ -1,0 +1,60 @@
+#include <tunables/global>
+
+profile elan_ha flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+
+  network inet stream,
+  network inet6 stream,
+  network inet dgram,
+  network inet6 dgram,
+
+  signal (send) set=(kill,term,int,hup,cont),
+
+  /run.sh ix,
+
+  /bin/busybox ix,
+  /usr/bin/env ix,
+  /bin/bash ix,
+  /usr/bin/bash ix,
+  /bin/date ix,
+  /usr/bin/date ix,
+  /bin/dirname ix,
+  /usr/bin/dirname ix,
+  /bin/mkdir ix,
+  /usr/bin/mkdir ix,
+  /bin/chmod ix,
+  /usr/bin/chmod ix,
+  /bin/rm ix,
+  /usr/bin/rm ix,
+  /bin/sleep ix,
+  /usr/bin/sleep ix,
+  /usr/bin/seq ix,
+  /usr/bin/jq ix,
+  /usr/bin/curl ix,
+  /usr/bin/valkey-server ix,
+  /usr/local/bin/bun ix,
+
+  /lib/** mr,
+  /usr/lib/** mr,
+  /etc/** r,
+
+  /app/** r,
+  /data/** rwk,
+  /tmp/** rwk,
+  /run/** rwk,
+  /var/lib/valkey/** rwk,
+
+  /dev/null rw,
+  /dev/random r,
+  /dev/urandom r,
+  /dev/tty rw,
+
+  deny /run/docker.sock rw,
+  deny /var/run/docker.sock rw,
+  deny /root/** rwklx,
+  deny /home/** rwklx,
+  deny /mnt/** rwklx,
+  deny /media/** rwklx,
+  deny /share/** rwklx,
+  deny /ssl/** rwklx,
+}

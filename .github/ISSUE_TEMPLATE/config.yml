@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
-  - name: Project discussions
-    url: https://github.com/arnostpleskot/elan-ha/discussions
-    about: Ask questions or discuss ideas that are not actionable bug reports or device support requests.
+  - name: Home Assistant MQTT documentation
+    url: https://www.home-assistant.io/integrations/mqtt/
+    about: Use this for general Home Assistant MQTT integration behavior.
+  - name: Home Assistant app documentation
+    url: https://developers.home-assistant.io/docs/add-ons/
+    about: Use this for general Home Assistant app packaging concepts.

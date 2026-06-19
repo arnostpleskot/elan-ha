@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Added submission-readiness documentation for early real-world testing.
+- Added GitHub issue templates for bug reports and device compatibility feedback.
+- Added a custom AppArmor profile for the Home Assistant app package.
+
 ## 0.1.2
 
 - Added Home Assistant app logo and icon assets.

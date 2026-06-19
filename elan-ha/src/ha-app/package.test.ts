@@ -288,7 +288,7 @@ describe("Home Assistant app repository package", () => {
 
     expect(docs).toContain("MQTT app is required");
     expect(docs).toContain("RF-003 Network Access");
-    expect(docs).toContain("Restart Behavior");
+    expect(docs).toContain("Restart And Update Behavior");
 
     expect(changelog).toContain("## 0.1.0");
     expect(changelog).toContain("## 0.1.1");

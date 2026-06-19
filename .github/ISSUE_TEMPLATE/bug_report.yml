@@ -1,0 +1,104 @@
+name: Bug report
+description: Report install, startup, discovery, command, polling, or update problems.
+title: "Bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. Do not paste RF-003 passwords, MQTT credentials, tokens, or other secrets. Sanitize logs before attaching them.
+  - type: input
+    id: app-version
+    attributes:
+      label: App version
+      description: Version shown by Home Assistant Supervisor.
+      placeholder: "0.1.2"
+    validations:
+      required: true
+  - type: input
+    id: ha-version
+    attributes:
+      label: Home Assistant version
+      placeholder: "2026.6.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: architecture
+    attributes:
+      label: Supervisor architecture
+      options:
+        - amd64
+        - aarch64
+        - armv7
+        - armhf
+        - i386
+        - other
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Problem area
+      options:
+        - Installation
+        - Update
+        - Startup
+        - RF-003 login
+        - RF-003 discovery
+        - MQTT connection
+        - MQTT Discovery entities
+        - Commands
+        - Polling or state updates
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: rf003-url-form
+    attributes:
+      label: RF-003 URL form
+      description: Say whether you use an IP address or local DNS name. Do not include credentials.
+      placeholder: "IP address, for example http://192.168.x.x"
+    validations:
+      required: true
+  - type: dropdown
+    id: mqtt-status
+    attributes:
+      label: Home Assistant MQTT app status
+      options:
+        - Installed and running
+        - Installed but not running
+        - Not installed
+        - External broker through unsupported app configuration
+        - Unsure
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs
+      description: Paste Supervisor logs from startup through the failure. Remove secrets and private details.
+      render: text
+    validations:
+      required: false
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: Include restart/update details, recent configuration changes, or anything else relevant.
+    validations:
+      required: false
