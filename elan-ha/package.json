@@ -20,7 +20,7 @@
     "ioredis": "^5.11.1",
     "mqtt": "^5.15.2",
     "pino": "latest",
-    "tough-cookie": "^6.0.1"
+    "tough-cookie": "^6.0.2"
   },
   "devDependencies": {
     "@types/bun": "latest",
